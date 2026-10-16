@@ -1,0 +1,63 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model User {
+    id         String          @id @default(uuid())
+    telegramId String          @unique
+    createdAt  DateTime        @default(now())
+    profiles   SearchProfile[]
+    matches    Match[]
+}
+
+model SearchProfile {
+    id        String   @id @default(uuid())
+    userId    String
+    user      User     @relation(fields: [userId], references: [id])
+    keywords  String[]
+    level     String
+    location String
+    minSalary Int?
+    maxSalary Int?
+}
+
+model Vacancy {
+    id          String   @id @default(uuid())
+    source      String
+    externalId  String
+    title       String
+    company     String
+    description String
+    url         String
+    postedAt    DateTime
+    matches     Match[]
+
+    @@unique([source, externalId])
+}
+
+model Match {
+    id            String      @id @default(uuid())
+    score         Int
+    reason        String?
+    matchedSkills String[]    @default([])
+    missingSkills String[]    @default([])
+    status        MatchStatus @default(NEW)
+    createdAt     DateTime    @default(now())
+    userId        String
+    vacancyId     String
+    user          User        @relation(fields: [userId], references: [id])
+    vacancy       Vacancy     @relation(fields: [vacancyId], references: [id])
+
+    @@unique([userId, vacancyId])
+}
+
+enum MatchStatus {
+    NEW
+    SENT
+    APPLIED
+    REJECTED
+}

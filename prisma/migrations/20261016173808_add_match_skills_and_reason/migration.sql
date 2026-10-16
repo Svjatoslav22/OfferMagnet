@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Match" ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "matchedSkills" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "missingSkills" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "reason" TEXT;
