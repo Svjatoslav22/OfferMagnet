@@ -110,9 +110,11 @@ export class DouScraper implements JobScraper {
     };
 
     const parts = lower.split(" ");
-    if (parts.length >= 2) {
-      const day = parseInt(parts[0], 10);
-      const month = months[parts[1]];
+    const dayStr = parts[0];
+    const monthStr = parts[1];
+    if (dayStr && monthStr) {
+      const day = parseInt(dayStr, 10);
+      const month = months[monthStr];
       if (!isNaN(day) && month !== undefined) {
         return new Date(now.getFullYear(), month, day);
       }
