@@ -1,0 +1,35 @@
+{
+  "node": {
+    "60061eadf161fc774f7600d8a31e6aaa4c3e34b565": {
+      "workers": {
+        "app/page": {
+          "moduleId": 32989,
+          "async": true
+        }
+      },
+      "exportedName": "updateMatchStatus",
+      "filename": "src/app/actions.ts"
+    },
+    "00dc79c74f07f3c0bb29581d10566d94fc86829ffd": {
+      "workers": {
+        "app/page": {
+          "moduleId": 32989,
+          "async": true
+        }
+      },
+      "exportedName": "triggerScanAction",
+      "filename": "src/app/actions.ts"
+    },
+    "407cad795cc5ff5981d23c8a0121ed6985897b2815": {
+      "workers": {
+        "app/page": {
+          "moduleId": 32989,
+          "async": true
+        }
+      },
+      "exportedName": "updateProfileSettingsAction",
+      "filename": "src/app/actions.ts"
+    }
+  },
+  "edge": {}
+}
