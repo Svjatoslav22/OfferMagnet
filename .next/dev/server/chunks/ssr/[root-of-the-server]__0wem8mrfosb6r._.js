@@ -5,6 +5,8 @@ module.exports = [
 
 return __turbopack_context__.a(async (__turbopack_handle_async_dependencies__, __turbopack_async_result__) => { try {
 __turbopack_context__.s([
+    "00a134604de03f26e1e881ac05a81db5075bfb4991",
+    ()=>__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["syncDashboardStateAction"],
     "00f72394110e4ffb3c31de5aeabcb620028414ada3",
     ()=>__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["triggerScanAction"],
     "408cca05872f3faca7c88a9df899340308ab6802f2",
@@ -31,6 +33,7 @@ var __turbopack_async_dependencies__ = __turbopack_handle_async_dependencies__([
     __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__
 ]);
 [__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$app$2f$actions$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__] = __turbopack_async_dependencies__.then ? (await __turbopack_async_dependencies__)() : __turbopack_async_dependencies__;
+;
 ;
 ;
 ;
@@ -182,7 +185,9 @@ __turbopack_async_result__();
 "use strict";
 
 return __turbopack_context__.a(async (__turbopack_handle_async_dependencies__, __turbopack_async_result__) => { try {
-/* __next_internal_action_entry_do_not_use__ [{"00f72394110e4ffb3c31de5aeabcb620028414ada3":{"name":"triggerScanAction"},"408cca05872f3faca7c88a9df899340308ab6802f2":{"name":"updateProfileSettingsAction"},"6024bc6d7d5e18faa5acdb501690b8523f415402fb":{"name":"updateMatchStatus"}},"src/app/actions.ts",""] */ __turbopack_context__.s([
+/* __next_internal_action_entry_do_not_use__ [{"00a134604de03f26e1e881ac05a81db5075bfb4991":{"name":"syncDashboardStateAction"},"00f72394110e4ffb3c31de5aeabcb620028414ada3":{"name":"triggerScanAction"},"408cca05872f3faca7c88a9df899340308ab6802f2":{"name":"updateProfileSettingsAction"},"6024bc6d7d5e18faa5acdb501690b8523f415402fb":{"name":"updateMatchStatus"}},"src/app/actions.ts",""] */ __turbopack_context__.s([
+    "syncDashboardStateAction",
+    ()=>syncDashboardStateAction,
     "triggerScanAction",
     ()=>triggerScanAction,
     "updateMatchStatus",
@@ -278,15 +283,66 @@ async function updateProfileSettingsAction(formData) {
         };
     }
 }
+async function syncDashboardStateAction() {
+    try {
+        const profileRecord = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["prisma"].searchProfile.findFirst();
+        const profile = {
+            level: profileRecord?.level || "Junior",
+            keywords: profileRecord?.keywords || [
+                "TypeScript",
+                "React",
+                "Node.js"
+            ],
+            location: profileRecord?.location || "Remote / Львів",
+            minSalary: profileRecord?.minSalary ?? 350,
+            maxSalary: profileRecord?.maxSalary ?? 700
+        };
+        const matches = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$db$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["prisma"].match.findMany({
+            include: {
+                vacancy: true
+            },
+            orderBy: {
+                score: "desc"
+            }
+        });
+        const jobs = matches.map((m)=>({
+                id: m.id,
+                title: m.vacancy.title,
+                company: m.vacancy.company,
+                location: m.vacancy.location || "Remote",
+                salary: m.vacancy.salary || "Не вказано",
+                source: m.vacancy.source,
+                status: m.status,
+                score: m.score,
+                explanation: m.reason || "Оцінено ШІ агентом",
+                matchedSkills: m.matchedSkills,
+                missingSkills: m.missingSkills,
+                url: m.vacancy.url
+            }));
+        return {
+            success: true,
+            jobs,
+            profile
+        };
+    } catch (error) {
+        console.error("Помилка Smart Polling синхронізації:", error);
+        return {
+            success: false,
+            error: "Не вдалося отримати актуальний стан бази"
+        };
+    }
+}
 ;
 (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$webpack$2f$loaders$2f$next$2d$flight$2d$loader$2f$action$2d$validate$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["ensureServerEntryExports"])([
     updateMatchStatus,
     triggerScanAction,
-    updateProfileSettingsAction
+    updateProfileSettingsAction,
+    syncDashboardStateAction
 ]);
 (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$webpack$2f$loaders$2f$next$2d$flight$2d$loader$2f$server$2d$reference$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["registerServerReference"])(updateMatchStatus, "6024bc6d7d5e18faa5acdb501690b8523f415402fb", null);
 (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$webpack$2f$loaders$2f$next$2d$flight$2d$loader$2f$server$2d$reference$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["registerServerReference"])(triggerScanAction, "00f72394110e4ffb3c31de5aeabcb620028414ada3", null);
 (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$webpack$2f$loaders$2f$next$2d$flight$2d$loader$2f$server$2d$reference$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["registerServerReference"])(updateProfileSettingsAction, "408cca05872f3faca7c88a9df899340308ab6802f2", null);
+(0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$webpack$2f$loaders$2f$next$2d$flight$2d$loader$2f$server$2d$reference$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["registerServerReference"])(syncDashboardStateAction, "00a134604de03f26e1e881ac05a81db5075bfb4991", null);
 __turbopack_async_result__();
 } catch(e) { __turbopack_async_result__(e); } }, false);}),
 "[project]/src/bot/bot.ts [app-rsc] (ecmascript)", ((__turbopack_context__) => {

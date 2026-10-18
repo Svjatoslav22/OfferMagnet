@@ -28,6 +28,7 @@ import {
   updateMatchStatus,
   triggerScanAction,
   updateProfileSettingsAction,
+  syncDashboardStateAction,
 } from "../app/actions";
 import type { MatchStatus } from "@prisma/client";
 
@@ -82,10 +83,103 @@ export function DashboardApp({
   const [maxSalaryInput, setMaxSalaryInput] = useState(profile.maxSalary?.toString() || "700");
   const [settingsSavedMessage, setSettingsSavedMessage] = useState(false);
 
-  // Sync state if server revalidates
+  // Smart Polling State
+  const [lastSynced, setLastSynced] = useState<Date>(new Date());
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncSecondsAgo, setSyncSecondsAgo] = useState<number>(0);
+
+  // Sync state if server revalidates via Server Action
   React.useEffect(() => {
     setJobs(initialJobs);
   }, [initialJobs]);
+
+  // Секундомір від останньої синхронізації
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setSyncSecondsAgo(Math.floor((Date.now() - lastSynced.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastSynced]);
+
+  // Smart Polling: автоматична фонова синхронізація кожні 4 секунди (з Telegram-ботом та CRON)
+  React.useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const performSync = async () => {
+      // 1. Енергоефективність: якщо вкладка не активна (згорнута чи у фоні) — не турбуємо базу даних
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
+
+      setIsSyncing(true);
+      try {
+        const res = await syncDashboardStateAction();
+        if (res.success && res.jobs) {
+          setJobs(res.jobs);
+
+          if (res.profile) {
+            setProfile(res.profile);
+            // 2. Pristine Guard: якщо користувач зараз не на вкладці налаштувань — оновлюємо значення форми
+            if (activeTab !== "settings") {
+              setLevel(res.profile.level);
+              setKeywordsInput(res.profile.keywords.join(", "));
+              setLocationInput(res.profile.location);
+              setMinSalaryInput(res.profile.minSalary?.toString() || "");
+              setMaxSalaryInput(res.profile.maxSalary?.toString() || "");
+            }
+          }
+          setLastSynced(new Date());
+          setSyncSecondsAgo(0);
+        }
+      } catch (err) {
+        console.error("Помилка фонової синхронізації:", err);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    // Опитування кожні 4 секунди
+    intervalId = setInterval(performSync, 4000);
+
+    // Миттєва синхронізація при поверненні фокусу на вкладку браузера
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        performSync();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [activeTab]);
+
+  // Ручний запуск синхронізації по кліку на бейдж
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncDashboardStateAction();
+      if (res.success && res.jobs) {
+        setJobs(res.jobs);
+        if (res.profile) {
+          setProfile(res.profile);
+          if (activeTab !== "settings") {
+            setLevel(res.profile.level);
+            setKeywordsInput(res.profile.keywords.join(", "));
+            setLocationInput(res.profile.location);
+            setMinSalaryInput(res.profile.minSalary?.toString() || "");
+            setMaxSalaryInput(res.profile.maxSalary?.toString() || "");
+          }
+        }
+        setLastSynced(new Date());
+        setSyncSecondsAgo(0);
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Statistics calculation
   const totalJobs = jobs.length;
@@ -357,18 +451,42 @@ export function DashboardApp({
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Header */}
-        <header className="lg:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ScanSearch className="w-6 h-6 text-blue-600" />
-            <span className="text-lg font-bold text-slate-900">OfferMagnet</span>
+        {/* Unified Top Header with Live Sync Status */}
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between z-10 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden text-slate-600 hover:text-slate-900"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="flex items-center gap-2">
+              <ScanSearch className="w-5 h-5 text-blue-600 lg:hidden" />
+              <span className="font-bold text-slate-900 text-sm sm:text-base">
+                {TABS.find((t) => t.id === activeTab)?.label}
+              </span>
+            </div>
           </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="text-slate-600 hover:text-slate-900"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+
+          {/* Live Sync Status Badge */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              title="Натисніть для миттєвої синхронізації з базою даних"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs cursor-pointer active:scale-95"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${isSyncing ? "duration-500" : ""}`}></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-semibold">{isSyncing ? "Синхронізація..." : "Live з Telegram"}</span>
+              <span className="text-emerald-600/70 text-[11px] hidden md:inline">
+                • {syncSecondsAgo < 5 ? "щойно" : `${syncSecondsAgo}с тому`}
+              </span>
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ml-0.5 ${isSyncing ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </header>
 
         {/* View Container */}

@@ -1,5 +1,15 @@
 {
   "node": {
+    "00a134604de03f26e1e881ac05a81db5075bfb4991": {
+      "workers": {
+        "app/page": {
+          "moduleId": "[project]/.next-internal/server/app/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/app/actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true
+        }
+      },
+      "exportedName": "syncDashboardStateAction",
+      "filename": "src/app/actions.ts"
+    },
     "408cca05872f3faca7c88a9df899340308ab6802f2": {
       "workers": {
         "app/page": {

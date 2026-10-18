@@ -29,6 +29,16 @@
       },
       "filename": "src/app/actions.ts",
       "exportedName": "updateProfileSettingsAction"
+    },
+    "0088a27452e8ed38f785a37e3ec6daab70a51c0e46": {
+      "workers": {
+        "app/page": {
+          "moduleId": 32989,
+          "async": true
+        }
+      },
+      "filename": "src/app/actions.ts",
+      "exportedName": "syncDashboardStateAction"
     }
   },
   "edge": {},

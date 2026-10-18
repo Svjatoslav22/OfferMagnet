@@ -75,3 +75,52 @@ export async function updateProfileSettingsAction(formData: {
     return { success: false, error: "Не вдалося зберегти налаштування" };
   }
 }
+
+/**
+ * Server Action для швидкої Smart Polling синхронізації з PostgreSQL (Telegram bot + CRON)
+ */
+export async function syncDashboardStateAction() {
+  try {
+    const profileRecord = await prisma.searchProfile.findFirst();
+    const profile = {
+      level: profileRecord?.level || "Junior",
+      keywords: profileRecord?.keywords || ["TypeScript", "React", "Node.js"],
+      location: profileRecord?.location || "Remote / Львів",
+      minSalary: profileRecord?.minSalary ?? 350,
+      maxSalary: profileRecord?.maxSalary ?? 700,
+    };
+
+    const matches = await prisma.match.findMany({
+      include: {
+        vacancy: true,
+      },
+      orderBy: {
+        score: "desc",
+      },
+    });
+
+    const jobs = matches.map((m) => ({
+      id: m.id,
+      title: m.vacancy.title,
+      company: m.vacancy.company,
+      location: m.vacancy.location || "Remote",
+      salary: m.vacancy.salary || "Не вказано",
+      source: m.vacancy.source,
+      status: m.status,
+      score: m.score,
+      explanation: m.reason || "Оцінено ШІ агентом",
+      matchedSkills: m.matchedSkills,
+      missingSkills: m.missingSkills,
+      url: m.vacancy.url,
+    }));
+
+    return {
+      success: true,
+      jobs,
+      profile,
+    };
+  } catch (error) {
+    console.error("Помилка Smart Polling синхронізації:", error);
+    return { success: false, error: "Не вдалося отримати актуальний стан бази" };
+  }
+}
