@@ -1,5 +1,7 @@
 import { DouScraper } from "../scrapers/dou.scraper";
 import { DjinniScraper } from "../scrapers/djinni.scraper";
+import { WorkUaScraper } from "../scrapers/work-ua.scraper";
+import { RobotaUaScraper } from "../scrapers/robota-ua.scraper";
 import { VacancyService } from "../services/vacancy.service";
 import { MatcherService } from "../ai/matcher.service";
 import { TelegramNotifierService } from "../bot/notifier.service";
@@ -10,6 +12,8 @@ export class PipelineOrchestrator {
   private isRunning = false;
   private douScraper = new DouScraper();
   private djinniScraper = new DjinniScraper();
+  private workUaScraper = new WorkUaScraper();
+  private robotaUaScraper = new RobotaUaScraper();
   private vacancyService = new VacancyService();
   private matcherService = new MatcherService();
   private notifier = new TelegramNotifierService();
@@ -48,16 +52,20 @@ export class PipelineOrchestrator {
       );
       const searchKeyword = allKeywords[0] || "Node.js";
 
-      // 2. Парсинг DOU та Djinni паралельно (Promise.allSettled)
-      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${searchKeyword}" з DOU та Djinni...`);
-      const [douResult, djinniResult] = await Promise.allSettled([
+      // 2. Паралельний збір з 4 джерел (DOU, Djinni, Work.ua, Robota.ua) через Promise.allSettled
+      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${searchKeyword}" з 4 джерел (DOU, Djinni, Work.ua, Robota.ua)...`);
+      const [douResult, djinniResult, workUaResult, robotaUaResult] = await Promise.allSettled([
         this.douScraper.scrape({ keyword: searchKeyword, limit: 5 }),
         this.djinniScraper.scrape({ keyword: searchKeyword, limit: 5 }),
+        this.workUaScraper.scrape({ keyword: searchKeyword, limit: 5 }),
+        this.robotaUaScraper.scrape({ keyword: searchKeyword, limit: 5 }),
       ]);
 
       const scrapedVacancies = [
         ...(douResult.status === "fulfilled" ? douResult.value : []),
         ...(djinniResult.status === "fulfilled" ? djinniResult.value : []),
+        ...(workUaResult.status === "fulfilled" ? workUaResult.value : []),
+        ...(robotaUaResult.status === "fulfilled" ? robotaUaResult.value : []),
       ];
 
       if (douResult.status === "rejected") {
@@ -65,6 +73,12 @@ export class PipelineOrchestrator {
       }
       if (djinniResult.status === "rejected") {
         console.error("❌ [Pipeline] Помилка Djinni парсера:", djinniResult.reason);
+      }
+      if (workUaResult.status === "rejected") {
+        console.error("❌ [Pipeline] Помилка Work.ua парсера:", workUaResult.reason);
+      }
+      if (robotaUaResult.status === "rejected") {
+        console.error("❌ [Pipeline] Помилка Robota.ua парсера:", robotaUaResult.reason);
       }
 
       console.log(`📦 [Pipeline] Успішно спарсено: ${scrapedVacancies.length} вакансій.`);
@@ -76,7 +90,7 @@ export class PipelineOrchestrator {
       let newEvaluations = 0;
       const allVacancies = await prisma.vacancy.findMany({
         orderBy: { postedAt: "desc" },
-        take: 20,
+        take: 40,
       });
 
       for (const profile of profiles) {

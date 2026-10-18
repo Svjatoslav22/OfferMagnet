@@ -737,7 +737,7 @@ function DashboardApp({ initialJobs, initialProfile, telegramUsername = "offerma
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                            children: isScanning ? "Скануємо DOU та Djinni..." : "Сканувати зараз"
+                                                            children: isScanning ? "Скануємо DOU, Djinni, Work.ua, Robota.ua..." : "Сканувати зараз"
                                                         }, void 0, false, {
                                                             fileName: "[project]/src/components/dashboard-app.tsx",
                                                             lineNumber: 391,
@@ -780,8 +780,8 @@ function DashboardApp({ initialJobs, initialProfile, telegramUsername = "offerma
                                                                     columnNumber: 23
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                                                    className: "text-sm text-green-600 mt-2",
-                                                                    children: "DOU + Djinni"
+                                                                    className: "text-xs text-green-600 mt-2 font-medium",
+                                                                    children: "4 джерела: DOU, Djinni, Work, Robota"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/src/components/dashboard-app.tsx",
                                                                     lineNumber: 401,

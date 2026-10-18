@@ -209,7 +209,7 @@ export function DashboardApp({
 
         {job.explanation && (
           <div className="bg-slate-50 p-3 rounded-lg text-xs text-slate-700 border border-slate-100 leading-relaxed">
-            <span className="font-semibold text-slate-900 block mb-1">AI Verdict:</span>
+            <span className="font-semibold text-slate-900 block mb-1">Вердикт ШІ:</span>
             {job.explanation}
           </div>
         )}
@@ -280,10 +280,10 @@ export function DashboardApp({
   };
 
   const TABS = [
-    { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
-    { id: "kanban" as const, label: "Kanban Board", icon: KanbanSquare },
-    { id: "telegram" as const, label: "Telegram Sync", icon: Send },
-    { id: "settings" as const, label: "Profile Settings", icon: Settings },
+    { id: "dashboard" as const, label: "Дашборд", icon: LayoutDashboard },
+    { id: "kanban" as const, label: "Канбан-дошка", icon: KanbanSquare },
+    { id: "telegram" as const, label: "Синхронізація з Telegram", icon: Send },
+    { id: "settings" as const, label: "Налаштування профілю", icon: Settings },
   ];
 
   return (
@@ -348,8 +348,8 @@ export function DashboardApp({
               OM
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900 truncate">Candidate</p>
-              <p className="text-xs text-slate-500 truncate">{profile.level} Developer</p>
+              <p className="text-sm font-semibold text-slate-900 truncate">Кандидат</p>
+              <p className="text-xs text-slate-500 truncate">{profile.level} Розробник</p>
             </div>
           </div>
         </div>
@@ -379,8 +379,8 @@ export function DashboardApp({
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Welcome to OfferMagnet! 👋</h1>
-                    <p className="text-slate-500 mt-1">Here is what your autonomous AI Agent found for you today.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Ласкаво просимо до OfferMagnet! 👋</h1>
+                    <p className="text-slate-500 mt-1">Ось що ваш автономний ШІ-агент підібрав для вас сьогодні.</p>
                   </div>
                   <button
                     onClick={handleScan}
@@ -388,7 +388,7 @@ export function DashboardApp({
                     className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium shadow-sm transition-all disabled:opacity-50"
                   >
                     <RefreshCw className={`w-5 h-5 ${isScanning ? "animate-spin" : ""}`} />
-                    <span>{isScanning ? "Scanning DOU & Djinni..." : "Scan Jobs Now"}</span>
+                    <span>{isScanning ? "Скануємо DOU, Djinni, Work.ua, Robota.ua..." : "Сканувати зараз"}</span>
                   </button>
                 </div>
 
@@ -396,9 +396,9 @@ export function DashboardApp({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-1">Total Jobs Scanned</p>
+                      <p className="text-sm font-medium text-slate-500 mb-1">Зібрано вакансій</p>
                       <h3 className="text-2xl font-bold text-slate-900">{totalJobs}</h3>
-                      <p className="text-sm text-green-600 mt-2">DOU + Djinni</p>
+                      <p className="text-xs text-green-600 mt-2 font-medium">4 джерела: DOU, Djinni, Work, Robota</p>
                     </div>
                     <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
                       <Briefcase className="w-6 h-6" />
@@ -407,9 +407,9 @@ export function DashboardApp({
 
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-1">High Matches (&gt;80%)</p>
+                      <p className="text-sm font-medium text-slate-500 mb-1">Топ збіги (&gt;80%)</p>
                       <h3 className="text-2xl font-bold text-slate-900">{highMatches}</h3>
-                      <p className="text-sm text-amber-600 mt-2">Recommended by AI</p>
+                      <p className="text-sm text-amber-600 mt-2">Рекомендовано ШІ</p>
                     </div>
                     <div className="p-3 bg-amber-50 rounded-lg text-amber-600">
                       <Zap className="w-6 h-6" />
@@ -418,9 +418,9 @@ export function DashboardApp({
 
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-1">Applied</p>
+                      <p className="text-sm font-medium text-slate-500 mb-1">Подано відгуків</p>
                       <h3 className="text-2xl font-bold text-slate-900">{appliedCount}</h3>
-                      <p className="text-sm text-emerald-600 mt-2">In Progress</p>
+                      <p className="text-sm text-emerald-600 mt-2">У процесі</p>
                     </div>
                     <div className="p-3 bg-emerald-50 rounded-lg text-emerald-600">
                       <CheckCircle2 className="w-6 h-6" />
@@ -429,9 +429,9 @@ export function DashboardApp({
 
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-500 mb-1">Average Match Score</p>
+                      <p className="text-sm font-medium text-slate-500 mb-1">Середній Match Score</p>
                       <h3 className="text-2xl font-bold text-slate-900">{avgScore}%</h3>
-                      <p className="text-sm text-slate-400 mt-2">Based on Gemini AI</p>
+                      <p className="text-sm text-slate-400 mt-2">На базі Gemini AI</p>
                     </div>
                     <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
                       <BarChart3 className="w-6 h-6" />
@@ -443,12 +443,12 @@ export function DashboardApp({
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-bold text-slate-900">Recent High Matches</h2>
+                      <h2 className="text-lg font-bold text-slate-900">Свіжі гарячі вакансії</h2>
                       <button
                         onClick={() => setActiveTab("kanban")}
                         className="text-sm text-blue-600 font-medium hover:underline"
                       >
-                        View Full Kanban
+                        Перейти до Канбан-дошки
                       </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -460,14 +460,14 @@ export function DashboardApp({
                   </div>
 
                   <div className="space-y-4">
-                    <h2 className="text-lg font-bold text-slate-900">Top Missing Skills</h2>
+                    <h2 className="text-lg font-bold text-slate-900">Найчастіші скіли, яких бракує</h2>
                     <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
                       <p className="text-sm text-slate-500 mb-4">
-                        Consider learning these skills to increase your match rate for top positions.
+                        Варто прокачати ці навички, щоб підвищити релевантність для найкращих вакансій.
                       </p>
                       <div className="space-y-3">
                         {missingSkillsList.length === 0 ? (
-                          <p className="text-xs text-slate-400">All key skills matched!</p>
+                          <p className="text-xs text-slate-400">Усі ключові навички збігаються!</p>
                         ) : (
                           missingSkillsList.map((skill, idx) => (
                             <div key={skill.name} className="flex items-center justify-between">
@@ -477,7 +477,7 @@ export function DashboardApp({
                                 </div>
                                 <span className="font-medium text-slate-700">{skill.name}</span>
                               </div>
-                              <span className="text-sm text-slate-400 font-medium">{skill.count} jobs</span>
+                              <span className="text-sm text-slate-400 font-medium">{skill.count} вак.</span>
                             </div>
                           ))
                         )}
@@ -493,8 +493,8 @@ export function DashboardApp({
               <div className="h-full flex flex-col">
                 <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Kanban Board</h1>
-                    <p className="text-slate-500 mt-1">Track and manage your job applications across platforms.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Канбан-дошка вакансій</h1>
+                    <p className="text-slate-500 mt-1">Відстежуйте та керуйте своїми відгуками на різних платформах.</p>
                   </div>
                   <button
                     onClick={handleScan}
@@ -502,7 +502,7 @@ export function DashboardApp({
                     className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition disabled:opacity-50"
                   >
                     <RefreshCw className={`w-4 h-4 ${isScanning ? "animate-spin" : ""}`} />
-                    <span>{isScanning ? "Scanning..." : "Scan Jobs"}</span>
+                    <span>{isScanning ? "Скануємо..." : "Запустити пошук"}</span>
                   </button>
                 </div>
 
@@ -510,10 +510,10 @@ export function DashboardApp({
                   <div className="flex gap-6 h-full min-w-max">
                     {(
                       [
-                        { id: "NEW", title: "New Jobs" },
-                        { id: "SENT", title: "Sent to Telegram" },
-                        { id: "APPLIED", title: "Applied" },
-                        { id: "REJECTED", title: "Rejected" },
+                        { id: "NEW", title: "Нові вакансії" },
+                        { id: "SENT", title: "Надіслано в Telegram" },
+                        { id: "APPLIED", title: "Відгукнувся" },
+                        { id: "REJECTED", title: "Відхилено" },
                       ] as const
                     ).map((col) => {
                       const columnJobs = jobs.filter((j) => j.status === col.id);
@@ -533,7 +533,7 @@ export function DashboardApp({
                               columnJobs.map(renderJobCard)
                             ) : (
                               <div className="h-24 flex items-center justify-center text-slate-400 text-xs border-2 border-dashed border-slate-200 rounded-lg">
-                                No jobs in this column
+                                Немає вакансій у цій колонці
                               </div>
                             )}
                           </div>
@@ -552,27 +552,27 @@ export function DashboardApp({
                   <Send className="w-10 h-10" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Telegram Sync</h2>
+                  <h2 className="text-2xl font-bold text-slate-900">Синхронізація з Telegram</h2>
                   <p className="text-slate-500 mt-2 max-w-md mx-auto">
-                    Connect OfferMagnet bot to receive instant alerts for high-matching jobs (70+) and manage applications directly from Telegram.
+                    Підключіть бота OfferMagnet для миттєвих сповіщень про гарячі вакансії (70%+) та управління відгуками прямо з месенджера.
                   </p>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left space-y-4 max-w-md mx-auto">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-600">Bot Username:</span>
+                    <span className="text-sm font-medium text-slate-600">Юзернейм бота:</span>
                     <span className="text-sm font-bold text-blue-600">@{telegramUsername}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-600">Status:</span>
+                    <span className="text-sm font-medium text-slate-600">Статус:</span>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                       <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      Online & Listening
+                      Онлайн & Працює
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-600">Scheduler (CRON):</span>
-                    <span className="text-xs font-medium text-slate-500">Every 2 Hours (Auto)</span>
+                    <span className="text-sm font-medium text-slate-600">Розклад автопошуку (CRON):</span>
+                    <span className="text-xs font-medium text-slate-500">Кожні 2 години (Авто)</span>
                   </div>
                 </div>
 
@@ -584,12 +584,12 @@ export function DashboardApp({
                     className="inline-flex items-center gap-2 bg-[#0088cc] hover:bg-[#0077b5] text-white px-8 py-3.5 rounded-xl font-medium shadow-md transition-colors"
                   >
                     <Send className="w-5 h-5" />
-                    <span>Open @{telegramUsername} in Telegram</span>
+                    <span>Відкрити @{telegramUsername} у Telegram</span>
                   </a>
                 </div>
 
                 <div className="text-xs text-slate-400 max-w-md mx-auto pt-4 border-t border-slate-200">
-                  Available Commands: <code className="bg-slate-100 px-1 py-0.5 rounded">/scan</code>,{" "}
+                  Доступні команди: <code className="bg-slate-100 px-1 py-0.5 rounded">/scan</code>,{" "}
                   <code className="bg-slate-100 px-1 py-0.5 rounded">/matches</code>,{" "}
                   <code className="bg-slate-100 px-1 py-0.5 rounded">/profile</code>,{" "}
                   <code className="bg-slate-100 px-1 py-0.5 rounded">/setsalary</code>,{" "}
@@ -602,9 +602,9 @@ export function DashboardApp({
             {activeTab === "settings" && (
               <div className="max-w-2xl mx-auto py-8">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-bold text-slate-900">Profile Settings</h1>
+                  <h1 className="text-2xl font-bold text-slate-900">Налаштування пошукового профілю</h1>
                   <p className="text-slate-500 mt-1">
-                    Manage your target roles, desired salary, and update your skill matrix to improve AI matching.
+                    Керуйте цільовими посадами, бажаною зарплатою та оновлюйте стек навичок для покращення рекомендацій ШІ.
                   </p>
                 </div>
 
@@ -621,7 +621,7 @@ export function DashboardApp({
 
                   {/* Seniority Level */}
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-2">Seniority Level</label>
+                    <label className="block text-sm font-semibold text-slate-800 mb-2">Рівень досвіду (Seniority)</label>
                     <div className="grid grid-cols-3 gap-3">
                       {(["Junior", "Middle", "Senior"] as const).map((l) => (
                         <button
@@ -643,13 +643,13 @@ export function DashboardApp({
                   {/* Skills / Keywords */}
                   <div>
                     <label className="block text-sm font-semibold text-slate-800 mb-2">
-                      Key Skills / Stack (comma separated)
+                      Ключові навички / Стек (через кому)
                     </label>
                     <input
                       type="text"
                       value={keywordsInput}
                       onChange={(e) => setKeywordsInput(e.target.value)}
-                      placeholder="e.g. TypeScript, React, Node.js, Next.js"
+                      placeholder="наприклад, TypeScript, React, Node.js, Next.js"
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -657,7 +657,7 @@ export function DashboardApp({
                   {/* Desired Salary */}
                   <div>
                     <label className="block text-sm font-semibold text-slate-800 mb-2">
-                      Desired Salary in $ (Min - Max)
+                      Бажана зарплата в $ (Мін - Макс)
                     </label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="relative">
@@ -666,7 +666,7 @@ export function DashboardApp({
                           type="number"
                           value={minSalaryInput}
                           onChange={(e) => setMinSalaryInput(e.target.value)}
-                          placeholder="Min (e.g. 350)"
+                          placeholder="Мін (напр. 350)"
                           className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -676,7 +676,7 @@ export function DashboardApp({
                           type="number"
                           value={maxSalaryInput}
                           onChange={(e) => setMaxSalaryInput(e.target.value)}
-                          placeholder="Max (e.g. 700)"
+                          placeholder="Макс (напр. 700)"
                           className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -688,12 +688,12 @@ export function DashboardApp({
 
                   {/* Location */}
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-2">Target Location / Format</label>
+                    <label className="block text-sm font-semibold text-slate-800 mb-2">Цільова локація / Формат роботи</label>
                     <input
                       type="text"
                       value={locationInput}
                       onChange={(e) => setLocationInput(e.target.value)}
-                      placeholder="e.g. Remote / Львів"
+                      placeholder="наприклад, Remote / Львів"
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -703,7 +703,7 @@ export function DashboardApp({
                     disabled={isSavingSettings}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium shadow-sm transition disabled:opacity-50"
                   >
-                    {isSavingSettings ? "Saving Settings..." : "Save Profile Settings"}
+                    {isSavingSettings ? "Збереження..." : "Зберегти налаштування"}
                   </button>
                 </form>
               </div>
