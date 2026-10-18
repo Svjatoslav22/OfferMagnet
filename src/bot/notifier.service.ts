@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
-import { prisma } from "../db.js";
-import { formatVacancyMessage, createVacancyKeyboard } from "./bot.js";
+import { prisma } from "../db";
+import { formatVacancyMessage, createVacancyKeyboard } from "./bot";
 
 export class TelegramNotifierService {
   /**

@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { orchestrator } from "./orchestrator.js";
+import { orchestrator } from "./orchestrator";
 import type { Bot } from "grammy";
 
 /**

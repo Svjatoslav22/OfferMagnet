@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Bot, InlineKeyboard } from "grammy";
-import { prisma } from "../db.js";
-import { orchestrator } from "../scheduler/orchestrator.js";
+import { prisma } from "../db";
+import { orchestrator } from "../scheduler/orchestrator";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -22,14 +22,20 @@ export function formatVacancyMessage(match: {
     source: string;
     url: string;
     description: string;
+    location?: string | null;
+    salary?: string | null;
   };
 }) {
   const emoji = match.score >= 80 ? "🔥 ІДЕАЛЬНИЙ ЗБІГ" : "👍 ГАРНИЙ ВАРІАНТ";
+  const salaryText = match.vacancy.salary ? `<code>${match.vacancy.salary}</code>` : "<i>Не вказано</i>";
+  const locationText = match.vacancy.location || "<i>Не вказано</i>";
 
   return `<b>${emoji} (${match.score}/100)</b>
 💼 <b>Позиція:</b> ${match.vacancy.title}
 🏢 <b>Компанія:</b> ${match.vacancy.company}
-📍 <b>Джерело:</b> ${match.vacancy.source}
+💰 <b>Зарплата:</b> ${salaryText}
+📍 <b>Локація:</b> ${locationText}
+🌐 <b>Джерело:</b> ${match.vacancy.source}
 
 💬 <b>Вердикт ШІ:</b>
 <i>${match.reason || "Підходить під ваш профіль"}</i>`;
@@ -188,9 +194,13 @@ bot.command("profile", async (ctx) => {
 • <b>Рівень:</b> <code>${profile.level}</code>
 • <b>Стек / Ключові слова:</b> <code>${profile.keywords.join(", ")}</code>
 • <b>Локація:</b> <code>${profile.location}</code>
-• <b>Очікувана зарплата:</b> <code>$${profile.minSalary ?? 0} - $${profile.maxSalary ?? "не вказано"}</code>
+• <b>Очікувана зарплата:</b> <code>$${profile.minSalary ?? 0} - $${profile.maxSalary ?? "не обмежено"}</code>
 
-<i>Швидке перемикання рівня:</i>`;
+<i>Швидке перемикання рівня:</i>
+
+💡 <i>Корисні команди налаштування:</i>
+• <code>/setsalary 350 500</code> — змінити зарплатні очікування ($)
+• <code>/setskills TypeScript, React, Node.js</code> — оновити стек`;
 
   const keyboard = new InlineKeyboard()
     .text(profile.level === "Junior" ? "✅ Junior" : "Junior", "set_level:Junior")
@@ -202,6 +212,60 @@ bot.command("profile", async (ctx) => {
     parse_mode: "HTML",
     reply_markup: keyboard,
   });
+});
+
+// /setsalary — змінити очікування по зарплаті (наприклад: /setsalary 350 400 або /setsalary 350)
+bot.command("setsalary", async (ctx) => {
+  const telegramId = ctx.from?.id.toString();
+  const input = ctx.match?.trim();
+
+  if (!telegramId || !input) {
+    await ctx.reply(
+      "ℹ️ Вкажіть бажану зарплату в $. Приклади:\n" +
+      "• <code>/setsalary 350 500</code> — вилка від $350 до $500\n" +
+      "• <code>/setsalary 400</code> — від $400",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const numbers = input.match(/\d+/g)?.map(Number);
+  if (!numbers || numbers.length === 0) {
+    await ctx.reply("❌ Не вдалося розпізнати число. Вкажіть суму, наприклад: <code>/setsalary 350 400</code>", {
+      parse_mode: "HTML",
+    });
+    return;
+  }
+
+  const minSalary = numbers[0]!;
+  const maxSalary = numbers.length > 1 ? numbers[1]! : null;
+
+  const user = await prisma.user.findUnique({
+    where: { telegramId },
+    include: { profiles: true },
+  });
+
+  if (!user || user.profiles.length === 0) {
+    await ctx.reply("Спершу надішліть /start.");
+    return;
+  }
+
+  const profile = user.profiles[0]!;
+  await prisma.searchProfile.update({
+    where: { id: profile.id },
+    data: {
+      minSalary,
+      maxSalary,
+    },
+  });
+
+  const salaryDisplay = maxSalary ? `$${minSalary} - $${maxSalary}` : `від $${minSalary}`;
+  await ctx.reply(
+    `✅ <b>Зарплатні очікування оновлено!</b>\n` +
+    `💰 Бажана вилка: <code>${salaryDisplay}</code>\n\n` +
+    `Тепер ШІ оцінюватиме вакансії з урахуванням нових очікувань.`,
+    { parse_mode: "HTML" }
+  );
 });
 
 // /setskills — змінити ключові слова профілю (наприклад: /setskills TypeScript, React, Node.js)

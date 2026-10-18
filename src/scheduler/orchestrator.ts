@@ -1,9 +1,9 @@
-import { DouScraper } from "../scrapers/dou.scraper.js";
-import { DjinniScraper } from "../scrapers/djinni.scraper.js";
-import { VacancyService } from "../services/vacancy.service.js";
-import { MatcherService } from "../ai/matcher.service.js";
-import { TelegramNotifierService } from "../bot/notifier.service.js";
-import { prisma } from "../db.js";
+import { DouScraper } from "../scrapers/dou.scraper";
+import { DjinniScraper } from "../scrapers/djinni.scraper";
+import { VacancyService } from "../services/vacancy.service";
+import { MatcherService } from "../ai/matcher.service";
+import { TelegramNotifierService } from "../bot/notifier.service";
+import { prisma } from "../db";
 import type { Bot } from "grammy";
 
 export class PipelineOrchestrator {

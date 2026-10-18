@@ -1,5 +1,5 @@
-import { prisma } from "../db.js";
-import type { ScrapedVacancy } from "../scrapers/types.js";
+import { prisma } from "../db";
+import type { ScrapedVacancy } from "../scrapers/types";
 
 export class VacancyService {
   /**
@@ -21,6 +21,8 @@ export class VacancyService {
           company: v.company,
           description: v.description,
           url: v.url,
+          location: v.location ?? null,
+          salary: v.salary ?? null,
           postedAt: v.postedAt,
         },
         create: {
@@ -30,6 +32,8 @@ export class VacancyService {
           company: v.company,
           description: v.description,
           url: v.url,
+          location: v.location ?? null,
+          salary: v.salary ?? null,
           postedAt: v.postedAt,
         },
       });

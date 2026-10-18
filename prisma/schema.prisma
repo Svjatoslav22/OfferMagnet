@@ -33,6 +33,8 @@ model Vacancy {
     company     String
     description String
     url         String
+    location    String?
+    salary      String?
     postedAt    DateTime
     matches     Match[]
 

@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { JobScraper, ScrapedVacancy, ScrapeOptions } from "./types.js";
+import type { JobScraper, ScrapedVacancy, ScrapeOptions } from "./types";
 
 export class DouScraper implements JobScraper {
   readonly source = "DOU";

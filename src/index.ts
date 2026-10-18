@@ -1,6 +1,6 @@
-import { orchestrator } from "./scheduler/orchestrator.js";
-import { bot } from "./bot/bot.js";
-import { prisma } from "./db.js";
+import { orchestrator } from "./scheduler/orchestrator";
+import { bot } from "./bot/bot";
+import { prisma } from "./db";
 
 async function main() {
   console.log("⚡ [Manual Run] Запуск повного пайплайну через Orchestrator...\n");

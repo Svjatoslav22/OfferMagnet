@@ -1,7 +1,7 @@
 import "dotenv/config";
-import { bot } from "./bot/bot.js";
-import { prisma } from "./db.js";
-import { initCronScheduler } from "./scheduler/cron.js";
+import { bot } from "./bot/bot";
+import { prisma } from "./db";
+import { initCronScheduler } from "./scheduler/cron";
 
 async function main() {
   if (!process.env.TELEGRAM_BOT_TOKEN) {

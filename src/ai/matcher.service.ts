@@ -1,5 +1,5 @@
-import { aiClient, DEFAULT_AI_MODEL } from "./ai.client.js";
-import { prisma } from "../db.js";
+import { aiClient, DEFAULT_AI_MODEL } from "./ai.client";
+import { prisma } from "../db";
 import type { SearchProfile, Vacancy } from "@prisma/client";
 
 export interface MatchAnalysisResult {
