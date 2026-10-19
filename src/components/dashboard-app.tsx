@@ -298,9 +298,14 @@ export function DashboardApp({
         className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow flex flex-col gap-3 group"
       >
         <div className="flex justify-between items-start gap-2">
-          <h4 className="font-semibold text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">
+          <a
+            href={job.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-slate-900 leading-tight hover:text-blue-600 transition-colors"
+          >
             {job.title}
-          </h4>
+          </a>
           {isEvaluated ? (
             <div className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center shadow-sm shrink-0 ${scoreBadgeColor}`}>
               <Zap className="w-3.5 h-3.5 mr-1" />
@@ -346,19 +351,31 @@ export function DashboardApp({
             {job.explanation}
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3 rounded-xl border border-blue-100 flex items-center justify-between gap-2">
+          <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3 rounded-xl border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="text-xs text-slate-600 min-w-0">
               <span className="font-semibold text-slate-900 block truncate">ШІ-оцінка не виконувалась</span>
-              <span className="text-[11px] text-slate-500">Натисніть для запуску аналізу</span>
+              <span className="text-[11px] text-slate-500">Перегляньте самостійно або запитайте ШІ</span>
             </div>
-            <button
-              onClick={() => handleEvaluateJob(job.id)}
-              disabled={evaluatingJobId === job.id}
-              className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition disabled:opacity-50 shrink-0 cursor-pointer active:scale-95"
-            >
-              <Zap className={`w-3.5 h-3.5 ${evaluatingJobId === job.id ? "animate-spin" : ""}`} />
-              <span>{evaluatingJobId === job.id ? "Оцінюємо..." : "🤖 Думка ШІ"}</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href={job.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Переглянути вакансію на сайті без використання токенів ШІ"
+                className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium flex items-center gap-1 transition shadow-2xs active:scale-95"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                <span>Переглянути</span>
+              </a>
+              <button
+                onClick={() => handleEvaluateJob(job.id)}
+                disabled={evaluatingJobId === job.id}
+                className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition disabled:opacity-50 cursor-pointer active:scale-95"
+              >
+                <Zap className={`w-3.5 h-3.5 ${evaluatingJobId === job.id ? "animate-spin" : ""}`} />
+                <span>{evaluatingJobId === job.id ? "Оцінюємо..." : "🤖 Думка ШІ"}</span>
+              </button>
+            </div>
           </div>
         )}
 

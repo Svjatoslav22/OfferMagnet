@@ -62,14 +62,18 @@ export function createVacancyKeyboard(
 
   // Рядок 1: ШІ оцінка (або Skill Gap, якщо вже оцінено)
   if (!isEvaluated) {
-    kb.text("🤖 Запитати думку ШІ", `ai:${matchId}`).row();
+    kb.text("🤖 Запитати думку ШІ", `ai:${matchId}`);
   } else {
-    kb.text("💡 Skill Gap", `gap:${matchId}`).row();
+    kb.text("💡 Skill Gap", `gap:${matchId}`);
   }
+  kb.row();
 
-  // Рядок 2: Дії
+  // Рядок 2: Прямий перегляд вакансії (без виклику ШІ та без зміни статусу на 'Відгукнувся')
+  kb.url("🌐 Переглянути вакансію", vacancyUrl).row();
+
+  // Рядок 3: Дії зі статусом (Відгукнутися / Відхилити)
   if (isApplied) {
-    kb.url("👉 Відкрити вакансію", vacancyUrl);
+    kb.url("👉 Подати резюме (вже відгукнувся)", vacancyUrl);
   } else {
     kb.text("🔗 Відгукнутися", `apply:${matchId}`);
   }

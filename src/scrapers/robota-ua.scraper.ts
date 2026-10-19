@@ -66,15 +66,34 @@ export class RobotaUaScraper implements JobScraper {
           );
 
           // Локація
-          const location = filteredSpans.find((s) =>
-            s.toLowerCase().includes("віддалено") ||
-            s.includes("Київ") ||
-            s.includes("Львів") ||
-            s.includes("Одеса") ||
-            s.includes("Дніпро") ||
-            s.includes("Харків") ||
-            s.includes("Україн")
-          ) || "Україна";
+          const location = filteredSpans.find((s) => {
+            const lower = s.toLowerCase();
+            return (
+              lower.includes("віддалено") ||
+              lower.includes("дистанційно") ||
+              lower.includes("remote") ||
+              lower.includes("київ") ||
+              lower.includes("львів") ||
+              lower.includes("одеса") ||
+              lower.includes("дніпро") ||
+              lower.includes("харків") ||
+              lower.includes("запоріжжя") ||
+              lower.includes("вінниця") ||
+              lower.includes("полтава") ||
+              lower.includes("чернігів") ||
+              lower.includes("черкаси") ||
+              lower.includes("житомир") ||
+              lower.includes("суми") ||
+              lower.includes("хмельницький") ||
+              lower.includes("чернівці") ||
+              lower.includes("рівне") ||
+              lower.includes("івано-франківськ") ||
+              lower.includes("тернопіль") ||
+              lower.includes("луцьк") ||
+              lower.includes("ужгород") ||
+              lower.includes("україн")
+            );
+          }) || "Україна";
 
           // Компанія: зазвичай спан біля міста або між зарплатою та описом, який НЕ містить цифр/зарплати
           const company = filteredSpans.find((s) =>

@@ -172,6 +172,11 @@ export class PipelineOrchestrator {
 
       for (const profile of profiles) {
         for (const vacancy of allVacancies) {
+          // Жорстка фільтрація: переконуємося, що вакансія суворо відповідає локації саме цього кандидата
+          if (!matchesLocation(vacancy, profile.location)) {
+            continue;
+          }
+
           const existingMatch = await prisma.match.findUnique({
             where: {
               userId_vacancyId: {

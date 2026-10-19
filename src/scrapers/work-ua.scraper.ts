@@ -71,13 +71,31 @@ export class WorkUaScraper implements JobScraper {
 
           // Локація
           const locSpan = spans.find((s) => {
-            const txt = s.textContent?.trim() || "";
+            const txt = (s.textContent?.trim() || "").toLowerCase();
             return (
-              txt.includes("Вся Україна") ||
-              txt.includes("Київ") ||
-              txt.includes("Львів") ||
-              txt.includes("Дистанційно") ||
-              txt.includes("віддалено")
+              txt.includes("дистанційно") ||
+              txt.includes("віддалено") ||
+              txt.includes("remote") ||
+              txt.includes("вся україна") ||
+              txt.includes("київ") ||
+              txt.includes("львів") ||
+              txt.includes("одеса") ||
+              txt.includes("дніпро") ||
+              txt.includes("харків") ||
+              txt.includes("запоріжжя") ||
+              txt.includes("вінниця") ||
+              txt.includes("полтава") ||
+              txt.includes("чернігів") ||
+              txt.includes("черкаси") ||
+              txt.includes("житомир") ||
+              txt.includes("суми") ||
+              txt.includes("хмельницький") ||
+              txt.includes("чернівці") ||
+              txt.includes("рівне") ||
+              txt.includes("івано-франківськ") ||
+              txt.includes("тернопіль") ||
+              txt.includes("луцьк") ||
+              txt.includes("ужгород")
             );
           });
           const location = locSpan?.textContent?.trim() || "Україна";
