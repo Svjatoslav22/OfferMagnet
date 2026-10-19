@@ -29,6 +29,7 @@ import {
   triggerScanAction,
   updateProfileSettingsAction,
   syncDashboardStateAction,
+  evaluateMatchWithAiAction,
 } from "../app/actions";
 import type { MatchStatus } from "@prisma/client";
 
@@ -254,8 +255,39 @@ export function DashboardApp({
     });
   };
 
+  // On-Demand AI state
+  const [evaluatingJobId, setEvaluatingJobId] = useState<string | null>(null);
+
+  const handleEvaluateJob = async (jobId: string) => {
+    setEvaluatingJobId(jobId);
+    try {
+      const res = await evaluateMatchWithAiAction(jobId);
+      if (res.success && res.score !== undefined) {
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === jobId
+              ? {
+                  ...j,
+                  score: res.score!,
+                  explanation: res.reason || "Оцінено ШІ",
+                  matchedSkills: res.matchedSkills || [],
+                  missingSkills: res.missingSkills || [],
+                }
+              : j
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Помилка On-Demand AI:", err);
+    } finally {
+      setEvaluatingJobId(null);
+    }
+  };
+
   // Reusable Job Card Component
   const renderJobCard = (job: DashboardJob) => {
+    const isEvaluated = Boolean(job.explanation && job.score > 0);
+
     let scoreBadgeColor = "bg-green-100 text-green-700";
     if (job.score < 80 && job.score >= 60) scoreBadgeColor = "bg-yellow-100 text-yellow-700";
     if (job.score < 60) scoreBadgeColor = "bg-red-100 text-red-700";
@@ -269,10 +301,17 @@ export function DashboardApp({
           <h4 className="font-semibold text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">
             {job.title}
           </h4>
-          <div className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center shadow-sm shrink-0 ${scoreBadgeColor}`}>
-            <Zap className="w-3.5 h-3.5 mr-1" />
-            {job.score}%
-          </div>
+          {isEvaluated ? (
+            <div className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center shadow-sm shrink-0 ${scoreBadgeColor}`}>
+              <Zap className="w-3.5 h-3.5 mr-1" />
+              {job.score}%
+            </div>
+          ) : (
+            <div className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center shadow-xs shrink-0 bg-slate-100 text-slate-600 border border-slate-200">
+              <Zap className="w-3 h-3 mr-1 text-slate-400" />
+              Не оцінено
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5 text-sm text-slate-600">
@@ -301,31 +340,48 @@ export function DashboardApp({
           </div>
         </div>
 
-        {job.explanation && (
+        {isEvaluated ? (
           <div className="bg-slate-50 p-3 rounded-lg text-xs text-slate-700 border border-slate-100 leading-relaxed">
             <span className="font-semibold text-slate-900 block mb-1">Вердикт ШІ:</span>
             {job.explanation}
           </div>
+        ) : (
+          <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3 rounded-xl border border-blue-100 flex items-center justify-between gap-2">
+            <div className="text-xs text-slate-600 min-w-0">
+              <span className="font-semibold text-slate-900 block truncate">ШІ-оцінка не виконувалась</span>
+              <span className="text-[11px] text-slate-500">Натисніть для запуску аналізу</span>
+            </div>
+            <button
+              onClick={() => handleEvaluateJob(job.id)}
+              disabled={evaluatingJobId === job.id}
+              className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition disabled:opacity-50 shrink-0 cursor-pointer active:scale-95"
+            >
+              <Zap className={`w-3.5 h-3.5 ${evaluatingJobId === job.id ? "animate-spin" : ""}`} />
+              <span>{evaluatingJobId === job.id ? "Оцінюємо..." : "🤖 Думка ШІ"}</span>
+            </button>
+          </div>
         )}
 
-        <div className="flex flex-wrap gap-1 mt-1">
-          {job.matchedSkills.map((skill) => (
-            <span
-              key={skill}
-              className="px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 text-[11px] rounded-md font-medium"
-            >
-              ✓ {skill}
-            </span>
-          ))}
-          {job.missingSkills.map((skill) => (
-            <span
-              key={skill}
-              className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 text-[11px] rounded-md font-medium"
-            >
-              -{skill}
-            </span>
-          ))}
-        </div>
+        {isEvaluated && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {job.matchedSkills.map((skill) => (
+              <span
+                key={skill}
+                className="px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 text-[11px] rounded-md font-medium"
+              >
+                ✓ {skill}
+              </span>
+            ))}
+            {job.missingSkills.map((skill) => (
+              <span
+                key={skill}
+                className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 text-[11px] rounded-md font-medium"
+              >
+                -{skill}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Quick status toggle footer */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">

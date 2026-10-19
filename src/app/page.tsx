@@ -35,7 +35,7 @@ export default async function Page() {
     source: m.vacancy.source,
     status: m.status,
     score: m.score,
-    explanation: m.reason || "Оцінено ШІ агентом",
+    explanation: m.reason || "",
     matchedSkills: m.matchedSkills,
     missingSkills: m.missingSkills,
     url: m.vacancy.url,

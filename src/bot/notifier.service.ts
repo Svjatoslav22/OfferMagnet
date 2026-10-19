@@ -4,27 +4,33 @@ import { formatVacancyMessage, createVacancyKeyboard } from "./bot";
 
 export class TelegramNotifierService {
   /**
-   * Розсилає нові гарячі вакансії користувачам (зі статусу NEW переводить у SENT)
+   * Розсилає свіжі вакансії користувачам (зі статусу NEW переводить у SENT)
    */
-  async notifyNewMatches(bot: Bot, minScore = 70) {
+  async notifyNewMatches(bot: Bot) {
     const newMatches = await prisma.match.findMany({
       where: {
         status: "NEW",
-        score: { gte: minScore },
       },
       include: {
         vacancy: true,
         user: true,
       },
+      take: 10,
     });
 
-    console.log(`📨 Знайдено ${newMatches.length} нових гарячих вакансій для розсилки...`);
+    console.log(`📨 Знайдено ${newMatches.length} нових вакансій для розсилки в Telegram...`);
 
     let sentCount = 0;
     for (const match of newMatches) {
       try {
         const text = formatVacancyMessage(match);
-        const keyboard = createVacancyKeyboard(match.id, match.vacancy.url);
+        const isEvaluated = Boolean(match.reason && match.score > 0);
+        const keyboard = createVacancyKeyboard(
+          match.id,
+          match.vacancy.url,
+          isEvaluated,
+          false
+        );
 
         await bot.api.sendMessage(match.user.telegramId, text, {
           parse_mode: "HTML",

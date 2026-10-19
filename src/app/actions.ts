@@ -2,6 +2,7 @@
 
 import { prisma } from "../db";
 import { orchestrator } from "../scheduler/orchestrator";
+import { MatcherService } from "../ai/matcher.service";
 import { revalidatePath } from "next/cache";
 import type { MatchStatus } from "@prisma/client";
 
@@ -108,7 +109,7 @@ export async function syncDashboardStateAction() {
       source: m.vacancy.source,
       status: m.status,
       score: m.score,
-      explanation: m.reason || "Оцінено ШІ агентом",
+      explanation: m.reason || "",
       matchedSkills: m.matchedSkills,
       missingSkills: m.missingSkills,
       url: m.vacancy.url,
@@ -122,5 +123,48 @@ export async function syncDashboardStateAction() {
   } catch (error) {
     console.error("Помилка Smart Polling синхронізації:", error);
     return { success: false, error: "Не вдалося отримати актуальний стан бази" };
+  }
+}
+
+/**
+ * Server Action для On-Demand оцінки вакансії через Gemini AI (з клієнтського дашборду)
+ */
+export async function evaluateMatchWithAiAction(matchId: string) {
+  try {
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        vacancy: true,
+        user: { include: { profiles: true } },
+      },
+    });
+
+    if (!match) {
+      return { success: false, error: "Матч не знайдено" };
+    }
+
+    const profile = match.user.profiles[0];
+    if (!profile) {
+      return { success: false, error: "Профіль кандидата не знайдено" };
+    }
+
+    const matcher = new MatcherService();
+    const { match: updatedMatch, analysis } = await matcher.matchAndSave(
+      match.userId,
+      profile,
+      match.vacancy
+    );
+
+    revalidatePath("/");
+    return {
+      success: true,
+      score: analysis.score,
+      reason: analysis.reason,
+      matchedSkills: analysis.matchedSkills,
+      missingSkills: analysis.missingSkills,
+    };
+  } catch (error) {
+    console.error("Помилка On-Demand AI у Server Action:", error);
+    return { success: false, error: "Не вдалося отримати оцінку ШІ" };
   }
 }

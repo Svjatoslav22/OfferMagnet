@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Bot, InlineKeyboard } from "grammy";
 import { prisma } from "../db";
 import { orchestrator } from "../scheduler/orchestrator";
+import { MatcherService } from "../ai/matcher.service";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -26,30 +27,55 @@ export function formatVacancyMessage(match: {
     salary?: string | null;
   };
 }) {
-  const emoji = match.score >= 80 ? "🔥 ІДЕАЛЬНИЙ ЗБІГ" : "👍 ГАРНИЙ ВАРІАНТ";
+  const isEvaluated = Boolean(match.reason && match.score > 0);
+  const emoji = isEvaluated
+    ? (match.score >= 80 ? `🔥 <b>ІДЕАЛЬНИЙ ЗБІГ (${match.score}/100)</b>` : `👍 <b>ГАРНИЙ ВАРІАНТ (${match.score}/100)</b>`)
+    : `🆕 <b>НОВА ВАКАНСІЯ</b>`;
+
   const salaryText = match.vacancy.salary ? `<code>${match.vacancy.salary}</code>` : "<i>Не вказано</i>";
   const locationText = match.vacancy.location || "<i>Не вказано</i>";
 
-  return `<b>${emoji} (${match.score}/100)</b>
+  const aiSection = isEvaluated
+    ? `💬 <b>Вердикт ШІ:</b>\n<i>${match.reason}</i>`
+    : `🤖 <b>ШІ-аналіз:</b> <i>Очікує вашого запиту (натисніть кнопку нижче)</i>`;
+
+  return `${emoji}
 💼 <b>Позиція:</b> ${match.vacancy.title}
 🏢 <b>Компанія:</b> ${match.vacancy.company}
 💰 <b>Зарплата:</b> ${salaryText}
 📍 <b>Локація:</b> ${locationText}
 🌐 <b>Джерело:</b> ${match.vacancy.source}
 
-💬 <b>Вердикт ШІ:</b>
-<i>${match.reason || "Підходить під ваш профіль"}</i>`;
+${aiSection}`;
 }
 
 /**
  * Створює інтерактивну клавіатуру для вакансії
  */
-export function createVacancyKeyboard(matchId: string, vacancyUrl: string) {
-  return new InlineKeyboard()
-    .url("🔗 Відгукнутися", vacancyUrl)
-    .row()
-    .text("💡 Skill Gap", `gap:${matchId}`)
-    .text("❌ Відхилити", `reject:${matchId}`);
+export function createVacancyKeyboard(
+  matchId: string,
+  vacancyUrl: string,
+  isEvaluated = false,
+  isApplied = false
+) {
+  const kb = new InlineKeyboard();
+
+  // Рядок 1: ШІ оцінка (або Skill Gap, якщо вже оцінено)
+  if (!isEvaluated) {
+    kb.text("🤖 Запитати думку ШІ", `ai:${matchId}`).row();
+  } else {
+    kb.text("💡 Skill Gap", `gap:${matchId}`).row();
+  }
+
+  // Рядок 2: Дії
+  if (isApplied) {
+    kb.url("👉 Відкрити вакансію", vacancyUrl);
+  } else {
+    kb.text("🔗 Відгукнутися", `apply:${matchId}`);
+  }
+  kb.text("❌ Відхилити", `reject:${matchId}`);
+
+  return kb;
 }
 
 // ─── ХЕНДЛЕРИ КОМАНД ──────────────────────────────────────────────
@@ -122,12 +148,13 @@ bot.command("scan", async (ctx) => {
 
     const report = `🎉 <b>Сканування завершено!</b>
 
-📦 Отримано вакансій: <b>${result.totalScraped}</b>
-🤖 Оцінено нових через ШІ: <b>${result.newEvaluations}</b>
-📨 Надіслано гарячих у чат: <b>${result.sentNotifications}</b>
+📦 Зібрано з 4 джерел: <b>${result.totalScraped}</b>
+📍 Відповідають локації: <b>${result.filteredCount}</b>
+✨ Нових збережених вакансій: <b>${result.newMatchesCreated}</b>
+📨 Надіслано в чат: <b>${result.sentNotifications}</b>
 ⏱️ Час виконання: <b>${result.durationSec}с</b>
 
-Натисніть /matches, щоб переглянути ваші найкращі збережені пропозиції!`;
+💡 <i>Оберіть цікаву вакансію нижче та натисніть [🤖 Запитати думку ШІ] для миттєвої оцінки!</i>`;
 
     await ctx.reply(report, { parse_mode: "HTML" });
   } catch (error) {
@@ -136,7 +163,7 @@ bot.command("scan", async (ctx) => {
   }
 });
 
-// /matches — показує топ гарячих вакансій
+// /matches — показує активні вакансії
 bot.command("matches", async (ctx) => {
   const telegramId = ctx.from?.id.toString();
   if (!telegramId) return;
@@ -150,24 +177,30 @@ bot.command("matches", async (ctx) => {
     return;
   }
 
-  const topMatches = await prisma.match.findMany({
+  const matches = await prisma.match.findMany({
     where: {
       userId: user.id,
-      score: { gte: 50 }, // показуємо тільки релевантні (50+)
+      status: { not: "REJECTED" },
     },
     include: { vacancy: true },
-    orderBy: { score: "desc" },
-    take: 3,
+    orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+    take: 5,
   });
 
-  if (topMatches.length === 0) {
-    await ctx.reply("Поки що немає оцінених вакансій зі скором 50+. Запустіть парсер!");
+  if (matches.length === 0) {
+    await ctx.reply("Поки що немає збережених вакансій. Запустіть /scan для збору!");
     return;
   }
 
-  for (const match of topMatches) {
+  for (const match of matches) {
     const text = formatVacancyMessage(match);
-    const keyboard = createVacancyKeyboard(match.id, match.vacancy.url);
+    const isEvaluated = Boolean(match.reason && match.score > 0);
+    const keyboard = createVacancyKeyboard(
+      match.id,
+      match.vacancy.url,
+      isEvaluated,
+      match.status === "APPLIED"
+    );
     await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard });
   }
 });
@@ -304,6 +337,112 @@ bot.command("setskills", async (ctx) => {
 });
 
 // ─── ХЕНДЛЕРИ КНОПОК (CALLBACK QUERIES) ────────────────────────────
+
+// 🤖 On-Demand AI: Запитати думку ШІ
+bot.callbackQuery(/^ai:(.+)$/, async (ctx) => {
+  const matchId = ctx.match[1];
+  if (!matchId) return;
+
+  await ctx.answerCallbackQuery({ text: "🤖 Gemini аналізує вакансію під ваш профіль..." });
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      vacancy: true,
+      user: { include: { profiles: true } },
+    },
+  });
+
+  if (!match) {
+    await ctx.reply("❌ Помилка: вакансію не знайдено в базі.");
+    return;
+  }
+
+  const profile = match.user.profiles[0];
+  if (!profile) {
+    await ctx.reply("❌ Помилка: пошуковий профіль не знайдено.");
+    return;
+  }
+
+  try {
+    const matcher = new MatcherService();
+    const { match: updatedMatch } = await matcher.matchAndSave(
+      match.userId,
+      profile,
+      match.vacancy
+    );
+
+    const newText = formatVacancyMessage({
+      score: updatedMatch.score,
+      reason: updatedMatch.reason,
+      vacancy: match.vacancy,
+    });
+
+    const newKeyboard = createVacancyKeyboard(
+      updatedMatch.id,
+      match.vacancy.url,
+      true,
+      updatedMatch.status === "APPLIED"
+    );
+
+    await ctx.editMessageText(newText, {
+      parse_mode: "HTML",
+      reply_markup: newKeyboard,
+    });
+  } catch (error) {
+    console.error("Помилка On-Demand AI у боті:", error);
+    await ctx.reply("❌ Не вдалося отримати оцінку ШІ. Спробуйте пізніше.");
+  }
+});
+
+// 🔗 Відгукнутися (перехоплення кліку, оновлення статусу в БД на APPLIED та видача лінка)
+bot.callbackQuery(/^apply:(.+)$/, async (ctx) => {
+  const matchId = ctx.match[1];
+  if (!matchId) return;
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { vacancy: true },
+  });
+
+  if (!match) {
+    await ctx.answerCallbackQuery({ text: "Матч не знайдено." });
+    return;
+  }
+
+  // 1. Оновлюємо статус у PostgreSQL
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { status: "APPLIED" },
+  });
+
+  await ctx.answerCallbackQuery({ text: "✅ Статус оновлено: 'Відгукнувся'!" });
+
+  // 2. Оновлюємо розмітку поточної картки, роблячи кнопку прямим посиланням
+  const isEvaluated = Boolean(match.reason && match.score > 0);
+  const updatedKeyboard = createVacancyKeyboard(
+    match.id,
+    match.vacancy.url,
+    isEvaluated,
+    true
+  );
+
+  try {
+    await ctx.editMessageReplyMarkup({
+      reply_markup: updatedKeyboard,
+    });
+  } catch (e) {
+    // ігноруємо, якщо розмітка не змінилася
+  }
+
+  // 3. Відправляємо окреме повідомлення з прямим клікабельним лінком
+  await ctx.reply(
+    `🎉 <b>Чудово! Статус оновлено на "Відгукнувся"</b>\n\n` +
+    `💼 <b>${match.vacancy.title}</b> (${match.vacancy.company})\n\n` +
+    `🔗 <b>Пряме посилання для подачі резюме:</b>\n${match.vacancy.url}`,
+    { parse_mode: "HTML" }
+  );
+});
 
 // 💡 Skill Gap (Показати навички)
 bot.callbackQuery(/^gap:(.+)$/, async (ctx) => {
