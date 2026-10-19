@@ -2,6 +2,7 @@ import { DouScraper } from "../scrapers/dou.scraper";
 import { DjinniScraper } from "../scrapers/djinni.scraper";
 import { WorkUaScraper } from "../scrapers/work-ua.scraper";
 import { RobotaUaScraper } from "../scrapers/robota-ua.scraper";
+import { JobicoScraper } from "../scrapers/jobico.scraper";
 import { VacancyService } from "../services/vacancy.service";
 import { MatcherService } from "../ai/matcher.service";
 import { TelegramNotifierService } from "../bot/notifier.service";
@@ -76,6 +77,7 @@ export class PipelineOrchestrator {
   private djinniScraper = new DjinniScraper();
   private workUaScraper = new WorkUaScraper();
   private robotaUaScraper = new RobotaUaScraper();
+  private jobicoScraper = new JobicoScraper();
   private vacancyService = new VacancyService();
   private matcherService = new MatcherService();
   private notifier = new TelegramNotifierService();
@@ -114,13 +116,14 @@ export class PipelineOrchestrator {
       );
       const searchKeyword = allKeywords[0] || "Node.js";
 
-      // 2. Паралельний збір з 4 джерел (DOU, Djinni, Work.ua, Robota.ua) через Promise.allSettled
-      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${searchKeyword}" з 4 джерел (DOU, Djinni, Work.ua, Robota.ua)...`);
-      const [douResult, djinniResult, workUaResult, robotaUaResult] = await Promise.allSettled([
+      // 2. Паралельний збір з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico) через Promise.allSettled
+      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${searchKeyword}" з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico)...`);
+      const [douResult, djinniResult, workUaResult, robotaUaResult, jobicoResult] = await Promise.allSettled([
         this.douScraper.scrape({ keyword: searchKeyword, limit: 5 }),
         this.djinniScraper.scrape({ keyword: searchKeyword, limit: 5 }),
         this.workUaScraper.scrape({ keyword: searchKeyword, limit: 5 }),
         this.robotaUaScraper.scrape({ keyword: searchKeyword, limit: 5 }),
+        this.jobicoScraper.scrape({ keyword: searchKeyword, limit: 5 }),
       ]);
 
       const scrapedVacancies = [
@@ -128,6 +131,7 @@ export class PipelineOrchestrator {
         ...(djinniResult.status === "fulfilled" ? djinniResult.value : []),
         ...(workUaResult.status === "fulfilled" ? workUaResult.value : []),
         ...(robotaUaResult.status === "fulfilled" ? robotaUaResult.value : []),
+        ...(jobicoResult.status === "fulfilled" ? jobicoResult.value : []),
       ];
 
       if (douResult.status === "rejected") {
@@ -141,6 +145,9 @@ export class PipelineOrchestrator {
       }
       if (robotaUaResult.status === "rejected") {
         console.error("❌ [Pipeline] Помилка Robota.ua парсера:", robotaUaResult.reason);
+      }
+      if (jobicoResult.status === "rejected") {
+        console.error("❌ [Pipeline] Помилка Jobico парсера:", jobicoResult.reason);
       }
 
       console.log(`📦 [Pipeline] Успішно спарсено: ${scrapedVacancies.length} вакансій.`);

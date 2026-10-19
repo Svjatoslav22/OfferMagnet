@@ -579,7 +579,7 @@ export function DashboardApp({
                     className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium shadow-sm transition-all disabled:opacity-50"
                   >
                     <RefreshCw className={`w-5 h-5 ${isScanning ? "animate-spin" : ""}`} />
-                    <span>{isScanning ? "Скануємо DOU, Djinni, Work.ua, Robota.ua..." : "Сканувати зараз"}</span>
+                    <span>{isScanning ? "Скануємо DOU, Djinni, Work.ua, Robota.ua, Jobico..." : "Сканувати зараз"}</span>
                   </button>
                 </div>
 
@@ -589,7 +589,7 @@ export function DashboardApp({
                     <div>
                       <p className="text-sm font-medium text-slate-500 mb-1">Зібрано вакансій</p>
                       <h3 className="text-2xl font-bold text-slate-900">{totalJobs}</h3>
-                      <p className="text-xs text-green-600 mt-2 font-medium">4 джерела: DOU, Djinni, Work, Robota</p>
+                      <p className="text-xs text-green-600 mt-2 font-medium">5 джерел: DOU, Djinni, Work, Robota, Jobico</p>
                     </div>
                     <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
                       <Briefcase className="w-6 h-6" />

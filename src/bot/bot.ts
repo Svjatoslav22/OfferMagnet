@@ -125,7 +125,7 @@ bot.command("start", async (ctx) => {
 • Очікування: <code>$${profile?.minSalary || 800} - $${profile?.maxSalary || 1500}</code>
 
 ⚡ <b>Команди:</b>
-/scan — миттєво запустити збір (DOU, Djinni, Work.ua, Robota.ua) та аналіз ШІ
+/scan — миттєво запустити збір (DOU, Djinni, Work.ua, Robota.ua, Jobico) та аналіз ШІ
 /matches — переглянути збережені гарячі вакансії
 /profile — налаштування пошукового профілю`;
 
@@ -134,7 +134,7 @@ bot.command("start", async (ctx) => {
 
 // /scan — ручний запуск збору та ШІ-аналізу вакансій
 bot.command("scan", async (ctx) => {
-  await ctx.reply("🔍 <b>Починаю пошук свіжих вакансій (DOU, Djinni, Work.ua, Robota.ua)...</b>\nЗачекайте декілька секунд: збираємо дані з 4 джерел та передаємо нові позиції на оцінку Gemini.", {
+  await ctx.reply("🔍 <b>Починаю пошук свіжих вакансій (DOU, Djinni, Work.ua, Robota.ua, Jobico)...</b>\nЗачекайте декілька секунд: збираємо дані з 5 джерел та оновлюємо базу актуальними позиціями.", {
     parse_mode: "HTML",
   });
 
