@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "next dev",
     "bot": "tsx watch src/run-bot.ts",
+    "bot:prod": "tsx src/run-bot.ts",
     "scan": "tsx src/index.ts",
+    "db:clean": "tsx prisma/clean.ts",
     "build": "next build",
     "start": "next start",
+    "postinstall": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {

@@ -4,8 +4,11 @@ import { chromium, type Browser, type BrowserContext } from "playwright-core";
  * Створює екземпляр headless Chrome з маскуванням автоматизації для обходу Cloudflare
  */
 export async function createStealthBrowser(): Promise<Browser> {
+  const executablePath =
+    process.env.CHROME_BIN || process.env.CHROMIUM_PATH || undefined;
+
   return await chromium.launch({
-    channel: "chrome",
+    ...(executablePath ? { executablePath } : { channel: "chrome" }),
     headless: true,
     args: [
       "--no-sandbox",
