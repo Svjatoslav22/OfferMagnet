@@ -351,18 +351,18 @@ export function DashboardApp({
             {job.explanation}
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3 rounded-xl border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="text-xs text-slate-600 min-w-0">
-              <span className="font-semibold text-slate-900 block truncate">ШІ-оцінка не виконувалась</span>
-              <span className="text-[11px] text-slate-500">Перегляньте самостійно або запитайте ШІ</span>
+          <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3.5 rounded-xl border border-blue-100 flex flex-col items-start gap-3">
+            <div className="text-xs text-slate-600 w-full">
+              <span className="font-semibold text-slate-900 block">ШІ-оцінка не виконувалась</span>
+              <span className="text-[11px] text-slate-500 block mt-0.5 leading-normal">Перегляньте самостійно або запитайте ШІ</span>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 w-full pt-1 border-t border-blue-100/60">
               <a
                 href={job.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Переглянути вакансію на сайті без використання токенів ШІ"
-                className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium flex items-center gap-1 transition shadow-2xs active:scale-95"
+                className="flex-1 min-w-[110px] justify-center px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium flex items-center gap-1.5 transition shadow-2xs active:scale-95"
               >
                 <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
                 <span>Переглянути</span>
@@ -370,7 +370,7 @@ export function DashboardApp({
               <button
                 onClick={() => handleEvaluateJob(job.id)}
                 disabled={evaluatingJobId === job.id}
-                className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition disabled:opacity-50 cursor-pointer active:scale-95"
+                className="flex-1 min-w-[125px] justify-center px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition disabled:opacity-50 cursor-pointer active:scale-95"
               >
                 <Zap className={`w-3.5 h-3.5 ${evaluatingJobId === job.id ? "animate-spin" : ""}`} />
                 <span>{evaluatingJobId === job.id ? "Оцінюємо..." : "🤖 Думка ШІ"}</span>
