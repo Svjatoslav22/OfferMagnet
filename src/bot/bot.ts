@@ -1,8 +1,11 @@
 import "dotenv/config";
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, InlineKeyboard, InputFile } from "grammy";
 import { prisma } from "../db";
 import { orchestrator } from "../scheduler/orchestrator";
 import { MatcherService } from "../ai/matcher.service";
+import { CoverLetterService } from "../ai/cover-letter.service";
+import { playwrightApplyService } from "../services/playwright-apply.service";
+import fs from "fs";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -399,7 +402,7 @@ bot.callbackQuery(/^ai:(.+)$/, async (ctx) => {
   }
 });
 
-// 🔗 Відгукнутися (перехоплення кліку, оновлення статусу в БД на APPLIED та видача лінка)
+// 🔗 Відгукнутися (Генерація чесного AI Cover Letter + Playwright авто-відгук з прикріпленням CV)
 bot.callbackQuery(/^apply:(.+)$/, async (ctx) => {
   const matchId = ctx.match[1];
   if (!matchId) return;
@@ -414,15 +417,9 @@ bot.callbackQuery(/^apply:(.+)$/, async (ctx) => {
     return;
   }
 
-  // 1. Оновлюємо статус у PostgreSQL
-  await prisma.match.update({
-    where: { id: matchId },
-    data: { status: "APPLIED" },
-  });
+  await ctx.answerCallbackQuery({ text: "🚀 Запускаю чесний AI-пітчинг та підготовку відгуку..." });
 
-  await ctx.answerCallbackQuery({ text: "✅ Статус оновлено: 'Відгукнувся'!" });
-
-  // 2. Оновлюємо розмітку поточної картки, роблячи кнопку прямим посиланням
+  // 1. Оновлюємо розмітку поточної картки (Optimistic UI для клавіатури)
   const isEvaluated = Boolean(match.reason && match.score > 0);
   const updatedKeyboard = createVacancyKeyboard(
     match.id,
@@ -439,13 +436,88 @@ bot.callbackQuery(/^apply:(.+)$/, async (ctx) => {
     // ігноруємо, якщо розмітка не змінилася
   }
 
-  // 3. Відправляємо окреме повідомлення з прямим клікабельним лінком
-  await ctx.reply(
-    `🎉 <b>Чудово! Статус оновлено на "Відгукнувся"</b>\n\n` +
-    `💼 <b>${match.vacancy.title}</b> (${match.vacancy.company})\n\n` +
-    `🔗 <b>Пряме посилання для подачі резюме:</b>\n${match.vacancy.url}`,
+  const progressMsg = await ctx.reply(
+    `⏳ <b>Готую авто-відгук для ${match.vacancy.title}...</b>\n\n` +
+    `1️⃣ 🧠 Генерація чесного AI-пітчу (Zero Hallucinations)...`,
     { parse_mode: "HTML" }
   );
+
+  try {
+    // 2. Генерація супровідного листа (Zero Hallucinations)
+    const coverLetterService = new CoverLetterService();
+    const coverLetter = await coverLetterService.generateCoverLetter({
+      title: match.vacancy.title,
+      company: match.vacancy.company,
+      description: match.vacancy.description,
+    });
+
+    // 3. Оновлюємо статус та зберігаємо супровідний лист у PostgreSQL
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        status: "APPLIED",
+        coverLetter,
+      },
+    });
+
+    try {
+      await ctx.api.editMessageText(
+        ctx.chat!.id,
+        progressMsg.message_id,
+        `⏳ <b>Готую авто-відгук для ${match.vacancy.title}...</b>\n\n` +
+        `1️⃣ ✅ Чесний AI-пітч згенеровано!\n` +
+        `2️⃣ 🎭 Playwright відкриває сторінку, заповнює форму та прикріплює <code>Sviatoslav_Tumtciv_CV.pdf</code>...`,
+        { parse_mode: "HTML" }
+      );
+    } catch {}
+
+    // 4. Запуск Playwright для відгуку
+    const applyResult = await playwrightApplyService.applyToVacancy(
+      match.vacancy,
+      coverLetter,
+      { dryRun: false }
+    );
+
+    // 5. Якщо створено скріншот форми — надсилаємо його як фото-доказ
+    if (applyResult.screenshotPath && fs.existsSync(applyResult.screenshotPath)) {
+      try {
+        await ctx.replyWithPhoto(new InputFile(applyResult.screenshotPath), {
+          caption: `📸 <b>Підтвердження заповнення форми:</b>\n${match.vacancy.title} (${match.vacancy.company})`,
+          parse_mode: "HTML",
+        });
+      } catch (e) {
+        console.warn("Не вдалося надіслати скріншот у Telegram:", e);
+      }
+    }
+
+    // 6. Фінальний звіт користувачу
+    const finalReport =
+      `🎯 <b>Авто-відгук опрацьовано!</b>\n\n` +
+      `💼 <b>Позиція:</b> ${match.vacancy.title} (${match.vacancy.company})\n` +
+      `📄 <b>Прикріплено резюме:</b> <code>Sviatoslav_Tumtciv_CV.pdf</code>\n` +
+      `🌐 <b>Джерело:</b> ${match.vacancy.source}\n\n` +
+      `💬 <b>Чесний AI-пітч (3-4 речення, 100% чесно):</b>\n` +
+      `<code>${coverLetter}</code>\n\n` +
+      `📊 <b>Статус Playwright:</b>\n${applyResult.message}\n\n` +
+      `🔗 <b>Пряме посилання на вакансію:</b>\n${match.vacancy.url}`;
+
+    await ctx.api.editMessageText(
+      ctx.chat!.id,
+      progressMsg.message_id,
+      finalReport,
+      { parse_mode: "HTML" }
+    );
+  } catch (error: any) {
+    console.error("Помилка авто-відгуку у Telegram боті:", error);
+    try {
+      await ctx.api.editMessageText(
+        ctx.chat!.id,
+        progressMsg.message_id,
+        `❌ <b>Помилка під час підготовки авто-відгуку:</b>\n${error.message || error}\n\nВи можете відгукнутися вручну за посиланням:\n${match.vacancy.url}`,
+        { parse_mode: "HTML" }
+      );
+    } catch {}
+  }
 });
 
 // 💡 Skill Gap (Показати навички)

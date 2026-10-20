@@ -3,6 +3,8 @@
 import { prisma } from "../db";
 import { orchestrator } from "../scheduler/orchestrator";
 import { MatcherService } from "../ai/matcher.service";
+import { CoverLetterService } from "../ai/cover-letter.service";
+import { playwrightApplyService } from "../services/playwright-apply.service";
 import { revalidatePath } from "next/cache";
 import type { MatchStatus } from "@prisma/client";
 
@@ -113,6 +115,7 @@ export async function syncDashboardStateAction() {
       matchedSkills: m.matchedSkills,
       missingSkills: m.missingSkills,
       url: m.vacancy.url,
+      coverLetter: m.coverLetter,
     }));
 
     return {
@@ -123,6 +126,60 @@ export async function syncDashboardStateAction() {
   } catch (error) {
     console.error("Помилка Smart Polling синхронізації:", error);
     return { success: false, error: "Не вдалося отримати актуальний стан бази" };
+  }
+}
+
+/**
+ * Server Action для авто-відгуку на вакансію (AI Cover Letter + Playwright з прикріпленням CV)
+ */
+export async function autoApplyMatchAction(matchId: string, options: { dryRun?: boolean } = {}) {
+  try {
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: { vacancy: true },
+    });
+
+    if (!match) {
+      return { success: false, error: "Вакансію не знайдено" };
+    }
+
+    // 1. Генерація 100% чесного AI Cover Letter (Zero Hallucinations)
+    const coverLetterService = new CoverLetterService();
+    const coverLetter = await coverLetterService.generateCoverLetter({
+      title: match.vacancy.title,
+      company: match.vacancy.company,
+      description: match.vacancy.description,
+    });
+
+    // 2. Оновлення статусу та збереження листа в PostgreSQL
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        status: "APPLIED",
+        coverLetter,
+      },
+    });
+
+    // 3. Запуск Playwright для подачі відгуку з прикріпленням CV
+    const applyResult = await playwrightApplyService.applyToVacancy(
+      match.vacancy,
+      coverLetter,
+      options
+    );
+
+    revalidatePath("/");
+
+    return {
+      success: true,
+      coverLetter,
+      applyResult,
+    };
+  } catch (error: any) {
+    console.error("Помилка авто-відгуку в Server Action:", error);
+    return {
+      success: false,
+      error: `Помилка авто-відгуку: ${error.message || error}`,
+    };
   }
 }
 

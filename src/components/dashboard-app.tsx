@@ -23,6 +23,10 @@ import {
   XCircle,
   Sliders,
   DollarSign,
+  FileText,
+  Copy,
+  Sparkles,
+  CheckCheck,
 } from "lucide-react";
 import {
   updateMatchStatus,
@@ -30,6 +34,7 @@ import {
   updateProfileSettingsAction,
   syncDashboardStateAction,
   evaluateMatchWithAiAction,
+  autoApplyMatchAction,
 } from "../app/actions";
 import type { MatchStatus } from "@prisma/client";
 
@@ -46,6 +51,7 @@ export interface DashboardJob {
   matchedSkills: string[];
   missingSkills: string[];
   url: string;
+  coverLetter?: string | null;
 }
 
 export interface DashboardProfile {
@@ -88,6 +94,12 @@ export function DashboardApp({
   const [lastSynced, setLastSynced] = useState<Date>(new Date());
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncSecondsAgo, setSyncSecondsAgo] = useState<number>(0);
+
+  // Auto-Apply & Cover Letter State
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [selectedCoverLetterJob, setSelectedCoverLetterJob] = useState<DashboardJob | null>(null);
+  const [copiedPitch, setCopiedPitch] = useState(false);
+  const [applyFeedback, setApplyFeedback] = useState<{ message: string; success: boolean } | null>(null);
 
   // Sync state if server revalidates via Server Action
   React.useEffect(() => {
@@ -284,6 +296,58 @@ export function DashboardApp({
     }
   };
 
+  const handleAutoApply = async (job: DashboardJob) => {
+    setApplyingJobId(job.id);
+    setApplyFeedback(null);
+    try {
+      const res = await autoApplyMatchAction(job.id, { dryRun: false });
+      if (res.success && res.coverLetter) {
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === job.id
+              ? {
+                  ...j,
+                  status: "APPLIED",
+                  coverLetter: res.coverLetter,
+                }
+              : j
+          )
+        );
+        setSelectedCoverLetterJob({
+          ...job,
+          status: "APPLIED",
+          coverLetter: res.coverLetter,
+        });
+        setApplyFeedback({
+          success: true,
+          message: res.applyResult?.message || "✅ Супровідний лист згенеровано, статус оновлено на 'Відгукнувся'!",
+        });
+      } else {
+        setApplyFeedback({
+          success: false,
+          message: res.error || "Не вдалося виконати авто-відгук",
+        });
+      }
+    } catch (err: any) {
+      setApplyFeedback({
+        success: false,
+        message: err.message || "Помилка авто-відгуку",
+      });
+    } finally {
+      setApplyingJobId(null);
+    }
+  };
+
+  const handleCopyPitch = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedPitch(true);
+      setTimeout(() => setCopiedPitch(false), 2000);
+    } catch (e) {
+      console.warn("Помилка копіювання:", e);
+    }
+  };
+
   // Reusable Job Card Component
   const renderJobCard = (job: DashboardJob) => {
     const isEvaluated = Boolean(job.explanation && job.score > 0);
@@ -400,13 +464,39 @@ export function DashboardApp({
           </div>
         )}
 
+        {/* Cover Letter preview button if exists */}
+        {job.coverLetter && (
+          <button
+            onClick={() => setSelectedCoverLetterJob(job)}
+            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/90 text-xs font-semibold transition cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="truncate">Чесний AI Cover Letter (готовий)</span>
+            </div>
+            <ExternalLink className="w-3 h-3 shrink-0 text-indigo-500" />
+          </button>
+        )}
+
         {/* Quick status toggle footer */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
           <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
             {job.status === "NEW" ? "Нова" : job.status === "SENT" ? "У Telegram" : job.status === "APPLIED" ? "Відгукнувся" : "Відхилено"}
           </span>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {job.status !== "APPLIED" && (
+              <button
+                onClick={() => handleAutoApply(job)}
+                disabled={applyingJobId === job.id}
+                title="Авто-відгук: згенерувати чесний AI-пітч, прикріпити CV та відкрити форму у Playwright"
+                className="p-1 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition flex items-center gap-1 shadow-xs disabled:opacity-50 cursor-pointer active:scale-95"
+              >
+                <Sparkles className={`w-3 h-3 ${applyingJobId === job.id ? "animate-spin" : ""}`} />
+                <span>{applyingJobId === job.id ? "Авто-відгук..." : "🚀 Авто-відгук"}</span>
+              </button>
+            )}
+
             {job.status !== "APPLIED" && (
               <button
                 onClick={() => handleStatusChange(job.id, "APPLIED")}
@@ -902,6 +992,104 @@ export function DashboardApp({
           </div>
         </div>
       </main>
+
+      {/* Modal: AI Cover Letter & Honest Pitch Preview */}
+      {selectedCoverLetterJob && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 mb-1">
+                  <Sparkles className="w-3 h-3 text-indigo-600" />
+                  <span>Zero Hallucinations AI Pitch</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 truncate">
+                  {selectedCoverLetterJob.title}
+                </h3>
+                <p className="text-xs text-slate-500">{selectedCoverLetterJob.company} • {selectedCoverLetterJob.source}</p>
+              </div>
+              <button
+                onClick={() => setSelectedCoverLetterJob(null)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Candidate verified context */}
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-1">
+              <div className="flex items-center justify-between text-slate-700 font-semibold">
+                <span>Кандидат: Sviatoslav Tymtciv</span>
+                <span className="text-emerald-600 font-medium">✓ 100% реальний досвід</span>
+              </div>
+              <p className="text-slate-500 text-[11px]">
+                Стек: React, Next.js, Node.js, TypeScript, PostgreSQL, MongoDB, Prisma, Tailwind CSS
+              </p>
+              <div className="flex items-center gap-1.5 text-blue-700 font-medium pt-1">
+                <FileText className="w-3.5 h-3.5" />
+                <span>Прикріплено файл: <code>Sviatoslav_Tumtciv_CV.pdf</code></span>
+              </div>
+            </div>
+
+            {/* The Pitch */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Текст супровідного листа (3-4 речення):</span>
+                <button
+                  onClick={() => handleCopyPitch(selectedCoverLetterJob.coverLetter || "")}
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold px-2 py-1 rounded-md hover:bg-blue-50 transition cursor-pointer"
+                >
+                  {copiedPitch ? (
+                    <>
+                      <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600">Скопійовано!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Скопіювати</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="p-4 rounded-xl bg-indigo-50/40 border border-indigo-100 text-sm text-slate-800 leading-relaxed font-sans select-all whitespace-pre-wrap">
+                {selectedCoverLetterJob.coverLetter || "Супровідний лист ще не згенеровано."}
+              </div>
+            </div>
+
+            {applyFeedback && (
+              <div
+                className={`p-3 rounded-xl text-xs font-medium border ${
+                  applyFeedback.success
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                    : "bg-amber-50 text-amber-800 border-amber-200"
+                }`}
+              >
+                {applyFeedback.message}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedCoverLetterJob(null)}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Закрити
+              </button>
+              <a
+                href={selectedCoverLetterJob.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition"
+              >
+                <span>Відкрити вакансію</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
