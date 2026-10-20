@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { createStealthBrowser, createStealthContext } from "../scrapers/browser";
+import { sanitizeCookies } from "../services/playwright-apply.service";
 
 async function verifyWorkAuth() {
   console.log("=================================================");
@@ -22,8 +23,9 @@ async function verifyWorkAuth() {
   const browser = await createStealthBrowser();
   const context = await createStealthContext(browser);
 
-  // Додаємо cookies
-  await context.addCookies(cookies);
+  // Додаємо нормалізовані cookies
+  const validCookies = sanitizeCookies(cookies);
+  await context.addCookies(validCookies);
 
   const page = await context.newPage();
 

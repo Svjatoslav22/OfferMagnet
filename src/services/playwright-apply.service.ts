@@ -14,6 +14,55 @@ export interface ApplyResult {
   message: string;
 }
 
+/**
+ * Нормалізує cookies з будь-яких джерел (Cookie-Editor, Chrome DevTools тощо) під строгий формат Playwright
+ */
+export function sanitizeCookies(rawCookies: any[]): any[] {
+  if (!Array.isArray(rawCookies)) return [];
+  return rawCookies
+    .filter((c) => c && c.name && c.value !== undefined)
+    .map((c) => {
+      const sanitized: any = {
+        name: String(c.name),
+        value: String(c.value),
+        domain: String(c.domain || ""),
+        path: String(c.path || "/"),
+      };
+
+      if (typeof c.secure === "boolean") {
+        sanitized.secure = c.secure;
+      }
+      if (typeof c.httpOnly === "boolean") {
+        sanitized.httpOnly = c.httpOnly;
+      }
+
+      // Термін дії cookies (expirationDate -> expires)
+      const exp =
+        typeof c.expires === "number"
+          ? c.expires
+          : typeof c.expirationDate === "number"
+          ? c.expirationDate
+          : undefined;
+      if (typeof exp === "number" && exp > 0) {
+        sanitized.expires = Math.floor(exp);
+      }
+
+      // Нормалізація SameSite (Lax | Strict | None)
+      if (c.sameSite) {
+        const s = String(c.sameSite).trim().toLowerCase();
+        if (s === "lax") {
+          sanitized.sameSite = "Lax";
+        } else if (s === "strict") {
+          sanitized.sameSite = "Strict";
+        } else if (s === "none" || s === "no_restriction") {
+          sanitized.sameSite = "None";
+        }
+      }
+
+      return sanitized;
+    });
+}
+
 export class PlaywrightApplyService {
   private cvPath: string;
   private cookiesDir: string;
@@ -40,9 +89,10 @@ export class PlaywrightApplyService {
 
     try {
       const raw = fs.readFileSync(cookieFile, "utf-8");
-      const cookies = JSON.parse(raw);
-      if (Array.isArray(cookies) && cookies.length > 0) {
-        await context.addCookies(cookies);
+      const rawCookies = JSON.parse(raw);
+      if (Array.isArray(rawCookies) && rawCookies.length > 0) {
+        const validCookies = sanitizeCookies(rawCookies);
+        await context.addCookies(validCookies);
         return true;
       }
     } catch (e) {
