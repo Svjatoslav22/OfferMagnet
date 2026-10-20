@@ -1,7 +1,8 @@
-import { chromium, type BrowserContext, type Page } from "playwright-core";
+import { type BrowserContext } from "playwright-core";
 import fs from "fs";
 import path from "path";
 import { CANDIDATE_PROFILE } from "../ai/cover-letter.service";
+import { createStealthBrowser, createStealthContext } from "../scrapers/browser";
 
 export interface ApplyResult {
   success: boolean;
@@ -31,7 +32,7 @@ export class PlaywrightApplyService {
   /**
    * Завантажує збережені cookies для конкретної платформи
    */
-  private async loadCookiesForDomain(context: BrowserContext, platform: "dou" | "djinni"): Promise<boolean> {
+  private async loadCookiesForDomain(context: BrowserContext, platform: string): Promise<boolean> {
     const cookieFile = path.join(this.cookiesDir, `${platform}.json`);
     if (!fs.existsSync(cookieFile)) {
       return false;
@@ -51,19 +52,23 @@ export class PlaywrightApplyService {
   }
 
   /**
-   * Головний метод автоматичної подачі відгуку
+   * Головний метод автоматичної подачі відгуку для всіх 5 джерел
    */
-  async applyToVacancy(vacancy: {
-    id: string;
-    source: string;
-    url: string;
-    title: string;
-    company: string;
-  }, coverLetter: string, options: { dryRun?: boolean } = {}): Promise<ApplyResult> {
+  async applyToVacancy(
+    vacancy: {
+      id: string;
+      source: string;
+      url: string;
+      title: string;
+      company: string;
+    },
+    coverLetter: string,
+    options: { dryRun?: boolean } = {}
+  ): Promise<ApplyResult> {
     const { dryRun = false } = options;
     const sourceLower = vacancy.source.toLowerCase();
 
-    // Перевіряємо наявність файлу CV
+    // Перевіряємо наявність обов'язкового файлу резюме
     if (!fs.existsSync(this.cvPath)) {
       return {
         success: false,
@@ -72,43 +77,28 @@ export class PlaywrightApplyService {
       };
     }
 
-    const browser = await chromium.launch({
-      channel: "chrome",
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-blink-features=AutomationControlled",
-      ],
-    });
-
-    const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-      viewport: { width: 1280, height: 900 },
-      locale: "uk-UA",
-    });
-
-    // Приховуємо ознаки автоматизації
-    await context.addInitScript(() => {
-      Object.defineProperty(navigator, "webdriver", {
-        get: () => undefined,
-      });
-    });
+    // Запускаємо локальний Chrome зі stealth-маскуванням (обхід Cloudflare)
+    const browser = await createStealthBrowser();
+    const context = await createStealthContext(browser);
 
     try {
       if (sourceLower.includes("dou")) {
         return await this.applyDou(context, vacancy, coverLetter, dryRun);
       } else if (sourceLower.includes("djinni")) {
         return await this.applyDjinni(context, vacancy, coverLetter, dryRun);
+      } else if (sourceLower.includes("work")) {
+        return await this.applyWork(context, vacancy, coverLetter, dryRun);
+      } else if (sourceLower.includes("robota")) {
+        return await this.applyRobota(context, vacancy, coverLetter, dryRun);
+      } else if (sourceLower.includes("jobico")) {
+        return await this.applyJobico(context, vacancy, coverLetter, dryRun);
       } else {
-        // Для Work.ua, Robota.ua, Jobico повертаємо прямий лінк із готовим текстом
         return {
           success: true,
           isExternal: true,
           externalUrl: vacancy.url,
           coverLetter,
-          message: `Для платформи ${vacancy.source} використовується пряме посилання із підготовленим AI-пітчем.`,
+          message: `Для платформи ${vacancy.source} підготовлено AI-пітч та пряме посилання.`,
         };
       }
     } catch (error: any) {
@@ -124,7 +114,7 @@ export class PlaywrightApplyService {
   }
 
   /**
-   * Обробка форми відгуку на DOU
+   * 1. Обробка форми відгуку на DOU
    */
   private async applyDou(
     context: BrowserContext,
@@ -137,11 +127,10 @@ export class PlaywrightApplyService {
 
     await page.goto(vacancy.url, { waitUntil: "domcontentloaded", timeout: 25000 });
 
-    // Перевіряємо форму відгуку або кнопку на DOU
     const replyBtn = page.locator('a.btn-reply, a:has-text("Відгукнутися на вакансію"), a:has-text("Відгукнутися")').first();
     const replyHref = (await replyBtn.count()) > 0 ? (await replyBtn.getAttribute("href")) || "" : "";
 
-    // Якщо кнопка відгуку веде на зовнішній сайт (ATS) або прямий email
+    // Зовнішній редирект (ATS/email)
     if (
       replyHref &&
       (replyHref.startsWith("mailto:") ||
@@ -166,11 +155,11 @@ export class PlaywrightApplyService {
         success: false,
         requiresAuth: true,
         coverLetter,
-        message: "⚠️ Для автовідгуку на DOU потрібні cookies авторизації. Збережіть ваші cookies через 'npm run auth' або у файл 'cookies/dou.json'.",
+        message: "⚠️ Для автовідгуку на DOU потрібні cookies авторизації. Збережіть ваші cookies через 'npm run auth'.",
       };
     }
 
-    // Якщо форма схована за кліком або CSS style="display: none;" — розгортаємо її гарантовано
+    // Розгортаємо форму на DOU гарантовано
     await page.evaluate(() => {
       const f = document.getElementById("reply-form");
       if (f) f.style.display = "block";
@@ -179,12 +168,10 @@ export class PlaywrightApplyService {
     if ((await replyBtn.count()) > 0 && !(await page.locator('textarea[name="message"]').isVisible())) {
       try {
         await replyBtn.click({ timeout: 2000 });
-      } catch {
-        // ignore if already revealed via JS
-      }
+      } catch {}
     }
 
-    // Знаходимо текстове поле для супровідного листа
+    // Поле супровідного тексту
     const textarea = page.locator('textarea[name="message"], textarea#reply-text, textarea').first();
     await textarea.waitFor({ state: "visible", timeout: 10000 });
     await textarea.fill(coverLetter);
@@ -196,7 +183,7 @@ export class PlaywrightApplyService {
       await page.waitForTimeout(1000);
     }
 
-    // Якщо користувач не був авторизований через cookies — заповнюємо обов'язкові поля імені та email
+    // Заповнюємо ім'я та email, якщо порожні
     const nameInput = page.locator('input[name="name"]').first();
     if ((await nameInput.count()) > 0 && !(await nameInput.inputValue())) {
       await nameInput.fill(CANDIDATE_PROFILE.name);
@@ -207,12 +194,10 @@ export class PlaywrightApplyService {
       await emailInput.fill(CANDIDATE_PROFILE.email);
     }
 
-    // Зберігаємо скріншот заповненої форми як доказ для користувача
     const screenshotName = `dou-${vacancy.id}-${Date.now()}.png`;
     const screenshotPath = path.join(this.artifactsDir, screenshotName);
     await page.screenshot({ path: screenshotPath, fullPage: false });
 
-    // Сабміт (якщо не режим dryRun)
     if (!dryRun) {
       const submitBtn = page.locator('button[type="submit"]:has-text("Відправити відгук"), button[type="submit"], input[type="submit"]').first();
       await submitBtn.click();
@@ -230,7 +215,7 @@ export class PlaywrightApplyService {
   }
 
   /**
-   * Обробка форми відгуку на Djinni
+   * 2. Обробка форми відгуку на Djinni
    */
   private async applyDjinni(
     context: BrowserContext,
@@ -243,7 +228,6 @@ export class PlaywrightApplyService {
 
     await page.goto(vacancy.url, { waitUntil: "domcontentloaded", timeout: 25000 });
 
-    // Перевірка авторизації на Djinni
     const isLoginPage = page.url().includes("/login");
     const loginLink = await page.locator('a[href*="/login"]').count();
 
@@ -252,31 +236,26 @@ export class PlaywrightApplyService {
         success: false,
         requiresAuth: true,
         coverLetter,
-        message:
-          "⚠️ Для автовідгуку на Djinni потрібні cookies авторизації. Збережіть ваші cookies у файл 'cookies/djinni.json' або скористайтесь 'npm run auth'.",
+        message: "⚠️ Для автовідгуку на Djinni потрібні cookies авторизації. Скористайтесь 'npm run auth'.",
       };
     }
 
-    // Натискаємо кнопку Відгукнутися
     const applyBtn = page.locator('a.btn-apply, a:has-text("Відгукнутися"), button:has-text("Відгукнутися")').first();
     if ((await applyBtn.count()) > 0) {
       await applyBtn.click();
       await page.waitForTimeout(1500);
     }
 
-    // Заповнюємо поле супровідного повідомлення
     const textarea = page.locator('textarea[name="message"], textarea#message, textarea').first();
     await textarea.waitFor({ state: "visible", timeout: 10000 });
     await textarea.fill(coverLetter);
 
-    // Прикріплюємо CV, якщо є input[type="file"]
     const fileInput = page.locator('input[type="file"]').first();
     if ((await fileInput.count()) > 0) {
       await fileInput.setInputFiles(this.cvPath);
       await page.waitForTimeout(1000);
     }
 
-    // Скріншот
     const screenshotName = `djinni-${vacancy.id}-${Date.now()}.png`;
     const screenshotPath = path.join(this.artifactsDir, screenshotName);
     await page.screenshot({ path: screenshotPath, fullPage: false });
@@ -294,6 +273,223 @@ export class PlaywrightApplyService {
       message: dryRun
         ? "✅ Форма на Djinni заповнена та CV підготовлено (Тестовий режим без кліку Відправити)."
         : "🚀 Відгук на Djinni успішно надіслано!",
+    };
+  }
+
+  /**
+   * 3. Обробка форми відгуку на Work.ua
+   */
+  private async applyWork(
+    context: BrowserContext,
+    vacancy: { id: string; url: string; title: string },
+    coverLetter: string,
+    dryRun: boolean
+  ): Promise<ApplyResult> {
+    const hasCookies = await this.loadCookiesForDomain(context, "work");
+    const page = await context.newPage();
+
+    await page.goto(vacancy.url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForTimeout(2000);
+
+    // Шукаємо кнопку 'Відгукнутися'
+    const applyBtn = page.locator('button:has-text("Відгукнутися"), a:has-text("Відгукнутися"), button#send-resume-btn, .btn:has-text("Відгукнутися")').first();
+    if ((await applyBtn.count()) === 0) {
+      return {
+        success: false,
+        coverLetter,
+        message: "Кнопку 'Відгукнутися' на сторінці Work.ua не знайдено (можливо, вакансія закрита або вимагає зовнішнього переходу).",
+      };
+    }
+
+    await applyBtn.click();
+    await page.waitForTimeout(2000);
+
+    // Перевірка авторизації: якщо з'явився інпут телефону і немає збережених cookies
+    const phoneInput = page.locator('input[name="phone"], input#phone');
+    if (!hasCookies && (await phoneInput.count()) > 0) {
+      return {
+        success: false,
+        requiresAuth: true,
+        coverLetter,
+        message: "⚠️ Для автовідгуку на Work.ua потрібні збережені cookies авторизації. Будь ласка, запустіть 'npm run auth'.",
+      };
+    }
+
+    // Якщо є кнопка розгортання супровідного листа
+    const addLetterBtn = page.locator('button:has-text("Додати супровідний"), a:has-text("Додати супровідний"), [data-qa="add-cover-letter"]').first();
+    if ((await addLetterBtn.count()) > 0 && (await addLetterBtn.isVisible())) {
+      await addLetterBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Поле супровідного листа (AI пітч)
+    const textarea = page.locator('textarea[name="letter"], textarea[name="message"], textarea#letter, textarea').first();
+    if ((await textarea.count()) > 0 && (await textarea.isVisible())) {
+      await textarea.fill(coverLetter);
+    }
+
+    // Прикріплюємо файл резюме CV
+    const fileInput = page.locator('input[type="file"]').first();
+    if ((await fileInput.count()) > 0) {
+      await fileInput.setInputFiles(this.cvPath);
+      await page.waitForTimeout(1000);
+    }
+
+    const screenshotName = `work-${vacancy.id}-${Date.now()}.png`;
+    const screenshotPath = path.join(this.artifactsDir, screenshotName);
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+
+    if (!dryRun) {
+      const submitBtn = page.locator('button[type="submit"]:has-text("Відправити"), button[type="submit"]:has-text("Надіслати"), button:has-text("Продовжити")').first();
+      if ((await submitBtn.count()) > 0) {
+        await submitBtn.click();
+        await page.waitForTimeout(3000);
+      }
+    }
+
+    return {
+      success: true,
+      coverLetter,
+      screenshotPath,
+      message: dryRun
+        ? "✅ Форма на Work.ua заповнена та CV підготовлено (Тестовий режим без відправки)."
+        : "🚀 Відгук на Work.ua успішно надіслано з вашим CV та AI-пітчем!",
+    };
+  }
+
+  /**
+   * 4. Обробка форми відгуку на Robota.ua
+   */
+  private async applyRobota(
+    context: BrowserContext,
+    vacancy: { id: string; url: string; title: string },
+    coverLetter: string,
+    dryRun: boolean
+  ): Promise<ApplyResult> {
+    const hasCookies = await this.loadCookiesForDomain(context, "robota");
+    const page = await context.newPage();
+
+    await page.goto(vacancy.url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForTimeout(3000);
+
+    const applyBtn = page.locator('button:has-text("Відгукнутись"), a:has-text("Відгукнутись"), button.primary-normal, button.primary-large').first();
+    if ((await applyBtn.count()) === 0) {
+      return {
+        success: false,
+        coverLetter,
+        message: "Кнопку 'Відгукнутись' на сторінці Robota.ua не знайдено.",
+      };
+    }
+
+    await applyBtn.click();
+    await page.waitForTimeout(3000);
+
+    // Перевірка авторизації на Robota.ua
+    if (page.url().includes("/auth/login") || ((await page.locator('input[type="email"]').count()) > 0 && !hasCookies)) {
+      return {
+        success: false,
+        requiresAuth: true,
+        coverLetter,
+        message: "⚠️ Для автовідгуку на Robota.ua потрібні збережені cookies авторизації. Будь ласка, запустіть 'npm run auth'.",
+      };
+    }
+
+    // Прикріплюємо файл резюме CV (на Robota.ua це #inputFile)
+    const fileInput = page.locator('input[type="file"]#inputFile, input[type="file"]').first();
+    if ((await fileInput.count()) > 0) {
+      await fileInput.setInputFiles(this.cvPath);
+      await page.waitForTimeout(1500);
+    }
+
+    // Поле супровідного листа / коментаря
+    const textarea = page.locator('textarea[name="comment"], textarea[name="coverLetter"], textarea').first();
+    if ((await textarea.count()) > 0 && (await textarea.isVisible())) {
+      await textarea.fill(coverLetter);
+    }
+
+    const screenshotName = `robota-${vacancy.id}-${Date.now()}.png`;
+    const screenshotPath = path.join(this.artifactsDir, screenshotName);
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+
+    if (!dryRun) {
+      const submitBtn = page.locator('button:has-text("Відгукнутись"), button:has-text("Продовжити"), button[type="submit"]').first();
+      if ((await submitBtn.count()) > 0) {
+        await submitBtn.click();
+        await page.waitForTimeout(3000);
+      }
+    }
+
+    return {
+      success: true,
+      coverLetter,
+      screenshotPath,
+      message: dryRun
+        ? "✅ Форма на Robota.ua заповнена та CV підготовлено (Тестовий режим)."
+        : "🚀 Відгук на Robota.ua успішно відправлено!",
+    };
+  }
+
+  /**
+   * 5. Обробка форми відгуку на Jobico
+   */
+  private async applyJobico(
+    context: BrowserContext,
+    vacancy: { id: string; url: string; title: string },
+    coverLetter: string,
+    dryRun: boolean
+  ): Promise<ApplyResult> {
+    const hasCookies = await this.loadCookiesForDomain(context, "jobico");
+    const page = await context.newPage();
+
+    await page.goto(vacancy.url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForTimeout(2000);
+
+    const loginLink = page.locator('a[href*="/login"], a:has-text("Увійти, щоб відгукнутися")').first();
+    if (!hasCookies && (await loginLink.count()) > 0) {
+      return {
+        success: false,
+        requiresAuth: true,
+        coverLetter,
+        message: "⚠️ Для автовідгуку на Jobico потрібні збережені cookies авторизації. Будь ласка, запустіть 'npm run auth'.",
+      };
+    }
+
+    const applyBtn = page.locator('button:has-text("Відгукнутися"), a:has-text("Відгукнутися")').first();
+    if ((await applyBtn.count()) > 0) {
+      await applyBtn.click();
+      await page.waitForTimeout(1500);
+    }
+
+    const textarea = page.locator('textarea').first();
+    if ((await textarea.count()) > 0 && (await textarea.isVisible())) {
+      await textarea.fill(coverLetter);
+    }
+
+    const fileInput = page.locator('input[type="file"]').first();
+    if ((await fileInput.count()) > 0) {
+      await fileInput.setInputFiles(this.cvPath);
+      await page.waitForTimeout(1000);
+    }
+
+    const screenshotName = `jobico-${vacancy.id}-${Date.now()}.png`;
+    const screenshotPath = path.join(this.artifactsDir, screenshotName);
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+
+    if (!dryRun) {
+      const submitBtn = page.locator('button[type="submit"]:has-text("Відгукнутися"), button.btn-primary:has-text("Відгукнутися")').first();
+      if ((await submitBtn.count()) > 0) {
+        await submitBtn.click();
+        await page.waitForTimeout(3000);
+      }
+    }
+
+    return {
+      success: true,
+      coverLetter,
+      screenshotPath,
+      message: dryRun
+        ? "✅ Форма на Jobico заповнена та CV підготовлено (Тестовий режим)."
+        : "🚀 Відгук на Jobico успішно відправлено!",
     };
   }
 }
