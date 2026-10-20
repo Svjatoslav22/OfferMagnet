@@ -21,6 +21,9 @@ pnpm-debug.log*
 .cache/
 tmp/
 temp/
+cookies/
+artifacts/
+screenshots/
 
 # Prisma local database files
 *.db
