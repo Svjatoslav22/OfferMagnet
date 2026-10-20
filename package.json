@@ -9,6 +9,7 @@
     "bot:prod": "tsx src/run-bot.ts",
     "scan": "tsx src/index.ts",
     "auth": "tsx src/scripts/auth.ts",
+    "verify:work": "tsx src/scripts/verify-work-auth.ts",
     "db:clean": "tsx prisma/clean.ts",
     "build": "next build",
     "start": "next start",
