@@ -40,6 +40,7 @@ export default async function Page() {
     missingSkills: m.missingSkills,
     url: m.vacancy.url,
     coverLetter: m.coverLetter,
+    applyMessage: m.applyMessage,
   }));
 
   return (

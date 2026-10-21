@@ -25,6 +25,10 @@ cookies/
 artifacts/
 screenshots/
 
+# Personal documents (contain phone/email) — never commit
+Sviatoslav_Tumtciv_CV.pdf
+*.pdf
+
 # Prisma local database files
 *.db
 *.db-journal

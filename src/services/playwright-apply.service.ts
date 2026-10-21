@@ -69,9 +69,15 @@ export class PlaywrightApplyService {
   private artifactsDir: string;
 
   constructor() {
-    this.cvPath = path.resolve(process.cwd(), "Sviatoslav_Tumtciv_CV.pdf");
-    this.cookiesDir = path.resolve(process.cwd(), "cookies");
-    this.artifactsDir = path.resolve(process.cwd(), "artifacts", "applies");
+    this.cvPath = path.resolve(
+      process.env.CV_PATH || path.join(process.cwd(), "Sviatoslav_Tumtciv_CV.pdf")
+    );
+    this.cookiesDir = path.resolve(
+      process.env.COOKIES_DIR || path.join(process.cwd(), "cookies")
+    );
+    this.artifactsDir = path.resolve(
+      process.env.ARTIFACTS_DIR || path.join(process.cwd(), "artifacts", "applies")
+    );
 
     if (!fs.existsSync(this.artifactsDir)) {
       fs.mkdirSync(this.artifactsDir, { recursive: true });

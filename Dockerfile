@@ -24,6 +24,7 @@ WORKDIR /app
 # Копіюємо конфіги залежностей
 COPY package*.json ./
 COPY prisma ./prisma/
+COPY prisma.config.ts ./
 
 # Встановлюємо залежності та генеруємо Prisma Client
 RUN npm ci --include=dev
@@ -32,6 +33,12 @@ RUN npx prisma generate
 # Копіюємо вихідний код
 COPY tsconfig.json ./
 COPY src ./src
+
+# CV та cookies живуть на Railway Volume (mount path: /data) і НЕ вшиваються в образ.
+# Завантажуються через Telegram-бота (PDF / JSON) — див. bot.on("message:document").
+ENV COOKIES_DIR=/data/cookies
+ENV CV_PATH=/data/Sviatoslav_Tumtciv_CV.pdf
+ENV ARTIFACTS_DIR=/data/artifacts/applies
 
 # Запуск бота та планувальника CRON
 CMD ["npm", "run", "bot:prod"]

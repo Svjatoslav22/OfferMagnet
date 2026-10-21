@@ -1,10 +1,7 @@
 "use server";
 
 import { prisma } from "../db";
-import { orchestrator } from "../scheduler/orchestrator";
 import { MatcherService } from "../ai/matcher.service";
-import { CoverLetterService } from "../ai/cover-letter.service";
-import { playwrightApplyService } from "../services/playwright-apply.service";
 import { revalidatePath } from "next/cache";
 import type { MatchStatus } from "@prisma/client";
 
@@ -27,17 +24,19 @@ export async function updateMatchStatus(matchId: string, newStatus: MatchStatus)
 }
 
 /**
- * Server Action для запуску сканування ринку прямо з веб-дашборду
+ * Server Action: ставить сканування в чергу (виконує його бекенд-воркер)
  */
 export async function triggerScanAction() {
   try {
-    const result = await orchestrator.runFullCycle({
-      triggeredBy: "Web Dashboard UI",
-      minScore: 70,
+    const active = await prisma.job.findFirst({
+      where: { type: "SCAN", status: { in: ["PENDING", "RUNNING"] } },
     });
+    if (!active) {
+      await prisma.job.create({ data: { type: "SCAN" } });
+    }
 
     revalidatePath("/");
-    return { success: true, result };
+    return { success: true, queued: true };
   } catch (error) {
     console.error("Помилка під час сканування:", error);
     return { success: false, error: "Помилка виконання збору вакансій" };
@@ -102,6 +101,11 @@ export async function syncDashboardStateAction() {
       },
     });
 
+    const activeScan = await prisma.job.findFirst({
+      where: { type: "SCAN", status: { in: ["PENDING", "RUNNING"] } },
+      select: { id: true },
+    });
+
     const jobs = matches.map((m) => ({
       id: m.id,
       title: m.vacancy.title,
@@ -116,12 +120,14 @@ export async function syncDashboardStateAction() {
       missingSkills: m.missingSkills,
       url: m.vacancy.url,
       coverLetter: m.coverLetter,
+      applyMessage: m.applyMessage,
     }));
 
     return {
       success: true,
       jobs,
       profile,
+      scanActive: !!activeScan,
     };
   } catch (error) {
     console.error("Помилка Smart Polling синхронізації:", error);
@@ -130,50 +136,37 @@ export async function syncDashboardStateAction() {
 }
 
 /**
- * Server Action для авто-відгуку на вакансію (AI Cover Letter + Playwright з прикріпленням CV)
+ * Server Action: ставить авто-відгук у чергу (PENDING_APPLY). Playwright виконує воркер.
  */
-export async function autoApplyMatchAction(matchId: string, options: { dryRun?: boolean } = {}) {
+export async function autoApplyMatchAction(matchId: string) {
   try {
-    const match = await prisma.match.findUnique({
-      where: { id: matchId },
-      include: { vacancy: true },
-    });
+    const match = await prisma.match.findUnique({ where: { id: matchId } });
 
     if (!match) {
       return { success: false, error: "Вакансію не знайдено" };
     }
-
-    // 1. Генерація 100% чесного AI Cover Letter (Zero Hallucinations)
-    const coverLetterService = new CoverLetterService();
-    const coverLetter = await coverLetterService.generateCoverLetter({
-      title: match.vacancy.title,
-      company: match.vacancy.company,
-      description: match.vacancy.description,
+    if (match.status === "APPLIED" || match.status === "PENDING_APPLY") {
+      return { success: false, error: "Відгук уже відправлено або в черзі" };
+    }
+    const active = await prisma.job.findFirst({
+      where: { type: "APPLY", matchId, status: { in: ["PENDING", "RUNNING"] } },
     });
+    if (active) {
+      return { success: false, error: "Відгук уже в черзі" };
+    }
 
-    // 2. Оновлення статусу та збереження листа в PostgreSQL
-    await prisma.match.update({
-      where: { id: matchId },
-      data: {
-        status: "APPLIED",
-        coverLetter,
-      },
-    });
-
-    // 3. Запуск Playwright для подачі відгуку з прикріпленням CV
-    const applyResult = await playwrightApplyService.applyToVacancy(
-      match.vacancy,
-      coverLetter,
-      options
-    );
+    await prisma.$transaction([
+      prisma.job.create({
+        data: { type: "APPLY", matchId, previousStatus: match.status },
+      }),
+      prisma.match.update({
+        where: { id: matchId },
+        data: { status: "PENDING_APPLY", applyMessage: null },
+      }),
+    ]);
 
     revalidatePath("/");
-
-    return {
-      success: true,
-      coverLetter,
-      applyResult,
-    };
+    return { success: true, queued: true };
   } catch (error: any) {
     console.error("Помилка авто-відгуку в Server Action:", error);
     return {

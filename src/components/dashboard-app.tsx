@@ -52,6 +52,7 @@ export interface DashboardJob {
   missingSkills: string[];
   url: string;
   coverLetter?: string | null;
+  applyMessage?: string | null;
 }
 
 export interface DashboardProfile {
@@ -78,7 +79,9 @@ export function DashboardApp({
   const [jobs, setJobs] = useState<DashboardJob[]>(initialJobs);
   const [profile, setProfile] = useState<DashboardProfile>(initialProfile);
 
-  const [isScanning, startScanTransition] = useTransition();
+  const [isScanQueueing, startScanTransition] = useTransition();
+  const [scanActive, setScanActive] = useState(false);
+  const isScanning = isScanQueueing || scanActive;
   const [isUpdatingStatus, startStatusTransition] = useTransition();
   const [isSavingSettings, startSettingsTransition] = useTransition();
 
@@ -129,6 +132,7 @@ export function DashboardApp({
         const res = await syncDashboardStateAction();
         if (res.success && res.jobs) {
           setJobs(res.jobs);
+          setScanActive(!!res.scanActive);
 
           if (res.profile) {
             setProfile(res.profile);
@@ -176,6 +180,7 @@ export function DashboardApp({
       const res = await syncDashboardStateAction();
       if (res.success && res.jobs) {
         setJobs(res.jobs);
+        setScanActive(!!res.scanActive);
         if (res.profile) {
           setProfile(res.profile);
           if (activeTab !== "settings") {
@@ -231,7 +236,8 @@ export function DashboardApp({
 
   const handleScan = () => {
     startScanTransition(async () => {
-      await triggerScanAction();
+      const res = await triggerScanAction();
+      if (res.success) setScanActive(true);
     });
   };
 
@@ -300,27 +306,16 @@ export function DashboardApp({
     setApplyingJobId(job.id);
     setApplyFeedback(null);
     try {
-      const res = await autoApplyMatchAction(job.id, { dryRun: false });
-      if (res.success && res.coverLetter) {
+      const res = await autoApplyMatchAction(job.id);
+      if (res.success) {
         setJobs((prev) =>
           prev.map((j) =>
-            j.id === job.id
-              ? {
-                  ...j,
-                  status: "APPLIED",
-                  coverLetter: res.coverLetter,
-                }
-              : j
+            j.id === job.id ? { ...j, status: "PENDING_APPLY", applyMessage: null } : j
           )
         );
-        setSelectedCoverLetterJob({
-          ...job,
-          status: "APPLIED",
-          coverLetter: res.coverLetter,
-        });
         setApplyFeedback({
           success: true,
-          message: res.applyResult?.message || "✅ Супровідний лист згенеровано, статус оновлено на 'Відгукнувся'!",
+          message: "⏳ Відгук у черзі. Воркер обробить його за кілька секунд — картка оновиться сама.",
         });
       } else {
         setApplyFeedback({
@@ -478,26 +473,33 @@ export function DashboardApp({
           </button>
         )}
 
+        {job.status !== "APPLIED" && job.status !== "PENDING_APPLY" && job.applyMessage && (
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+            {job.applyMessage}
+          </p>
+        )}
+
+
         {/* Quick status toggle footer */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
           <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-            {job.status === "NEW" ? "Нова" : job.status === "SENT" ? "У Telegram" : job.status === "APPLIED" ? "Відгукнувся" : "Відхилено"}
+            {job.status === "NEW" ? "Нова" : job.status === "SENT" ? "У Telegram" : job.status === "APPLIED" ? "Відгукнувся" : job.status === "PENDING_APPLY" ? "⏳ В черзі на відгук…" : "Відхилено"}
           </span>
 
           <div className="flex items-center gap-1.5">
-            {job.status !== "APPLIED" && (
+            {job.status !== "APPLIED" && job.status !== "PENDING_APPLY" && (
               <button
                 onClick={() => handleAutoApply(job)}
                 disabled={applyingJobId === job.id}
-                title="Авто-відгук: згенерувати чесний AI-пітч, прикріпити CV та відкрити форму у Playwright"
+                title="Авто-відгук: поставити в чергу — воркер згенерує чесний AI-пітч, прикріпить CV і відправить"
                 className="p-1 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition flex items-center gap-1 shadow-xs disabled:opacity-50 cursor-pointer active:scale-95"
               >
                 <Sparkles className={`w-3 h-3 ${applyingJobId === job.id ? "animate-spin" : ""}`} />
-                <span>{applyingJobId === job.id ? "Авто-відгук..." : "🚀 Авто-відгук"}</span>
+                <span>{applyingJobId === job.id ? "Ставлю в чергу..." : "🚀 Авто-відгук"}</span>
               </button>
             )}
 
-            {job.status !== "APPLIED" && (
+            {job.status !== "APPLIED" && job.status !== "PENDING_APPLY" && (
               <button
                 onClick={() => handleStatusChange(job.id, "APPLIED")}
                 disabled={isUpdatingStatus}
@@ -793,6 +795,7 @@ export function DashboardApp({
                       [
                         { id: "NEW", title: "Нові вакансії" },
                         { id: "SENT", title: "Надіслано в Telegram" },
+                        { id: "PENDING_APPLY", title: "⏳ В черзі на відгук" },
                         { id: "APPLIED", title: "Відгукнувся" },
                         { id: "REJECTED", title: "Відхилено" },
                       ] as const

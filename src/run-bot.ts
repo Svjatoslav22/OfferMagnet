@@ -2,6 +2,7 @@ import "dotenv/config";
 import { bot } from "./bot/bot";
 import { prisma } from "./db";
 import { initCronScheduler } from "./scheduler/cron";
+import { startJobWorker } from "./worker/job-worker";
 
 async function main() {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
@@ -14,6 +15,8 @@ async function main() {
   // 1. Ініціалізуємо автономний CRON-планувальник (кожні 2 години)
   const cronTask = initCronScheduler(bot);
 
+  // 1.1. Запускаємо обробник черги завдань (авто-відгуки та скани, створені з веб-дашборду)
+  const stopWorker = await startJobWorker(bot);
   // 2. Запуск бота в режимі Long Polling
   bot.start({
     onStart: (botInfo) => {
@@ -26,6 +29,7 @@ async function main() {
   const stopBot = async () => {
     console.log("\n🛑 Зупинка бота та планувальника...");
     cronTask.stop();
+    await stopWorker();
     await bot.stop();
     await prisma.$disconnect();
     process.exit(0);

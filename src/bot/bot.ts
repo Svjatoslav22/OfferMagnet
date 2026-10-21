@@ -3,9 +3,9 @@ import { Bot, InlineKeyboard, InputFile } from "grammy";
 import { prisma } from "../db";
 import { orchestrator } from "../scheduler/orchestrator";
 import { MatcherService } from "../ai/matcher.service";
-import { CoverLetterService } from "../ai/cover-letter.service";
-import { playwrightApplyService } from "../services/playwright-apply.service";
+import { runApplyForMatch } from "../services/apply.pipeline";
 import fs from "fs";
+import path from "path";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -417,6 +417,13 @@ bot.callbackQuery(/^apply:(.+)$/, async (ctx) => {
     return;
   }
 
+  if (match.status === "APPLIED" || match.status === "PENDING_APPLY") {
+    await ctx.answerCallbackQuery({
+      text: match.status === "APPLIED" ? "Ви вже відгукнулись на цю вакансію." : "Відгук уже в черзі.",
+    });
+    return;
+  }
+
   await ctx.answerCallbackQuery({ text: "🚀 Запускаю чесний AI-пітчинг та підготовку відгуку..." });
 
   // 1. Оновлюємо розмітку поточної картки (Optimistic UI для клавіатури)
@@ -443,45 +450,13 @@ bot.callbackQuery(/^apply:(.+)$/, async (ctx) => {
   );
 
   try {
-    // 2. Генерація супровідного листа (Zero Hallucinations)
-    const coverLetterService = new CoverLetterService();
-    const coverLetter = await coverLetterService.generateCoverLetter({
-      title: match.vacancy.title,
-      company: match.vacancy.company,
-      description: match.vacancy.description,
-    });
+    // 2-4. Спільний пайплайн: пітч → Playwright → статус (APPLIED лише при реальній відправці)
+    const outcome = await runApplyForMatch(matchId, { previousStatus: match.status });
 
-    // 3. Оновлюємо статус та зберігаємо супровідний лист у PostgreSQL
-    await prisma.match.update({
-      where: { id: matchId },
-      data: {
-        status: "APPLIED",
-        coverLetter,
-      },
-    });
-
-    try {
-      await ctx.api.editMessageText(
-        ctx.chat!.id,
-        progressMsg.message_id,
-        `⏳ <b>Готую авто-відгук для ${match.vacancy.title}...</b>\n\n` +
-        `1️⃣ ✅ Чесний AI-пітч згенеровано!\n` +
-        `2️⃣ 🎭 Playwright відкриває сторінку, заповнює форму та прикріплює <code>Sviatoslav_Tumtciv_CV.pdf</code>...`,
-        { parse_mode: "HTML" }
-      );
-    } catch {}
-
-    // 4. Запуск Playwright для відгуку
-    const applyResult = await playwrightApplyService.applyToVacancy(
-      match.vacancy,
-      coverLetter,
-      { dryRun: false }
-    );
-
-    // 5. Якщо створено скріншот форми — надсилаємо його як фото-доказ
-    if (applyResult.screenshotPath && fs.existsSync(applyResult.screenshotPath)) {
+    // 5. Скріншот форми як підтвердження
+    if (outcome.screenshotPath && fs.existsSync(outcome.screenshotPath)) {
       try {
-        await ctx.replyWithPhoto(new InputFile(applyResult.screenshotPath), {
+        await ctx.replyWithPhoto(new InputFile(outcome.screenshotPath), {
           caption: `📸 <b>Підтвердження заповнення форми:</b>\n${match.vacancy.title} (${match.vacancy.company})`,
           parse_mode: "HTML",
         });
@@ -492,13 +467,13 @@ bot.callbackQuery(/^apply:(.+)$/, async (ctx) => {
 
     // 6. Фінальний звіт користувачу
     const finalReport =
-      `🎯 <b>Авто-відгук опрацьовано!</b>\n\n` +
+      `${outcome.applied ? "🎯 <b>Відгук відправлено!</b>" : "⚠️ <b>Відгук не відправлено автоматично</b>"}\n\n` +
       `💼 <b>Позиція:</b> ${match.vacancy.title} (${match.vacancy.company})\n` +
-      `📄 <b>Прикріплено резюме:</b> <code>Sviatoslav_Tumtciv_CV.pdf</code>\n` +
       `🌐 <b>Джерело:</b> ${match.vacancy.source}\n\n` +
-      `💬 <b>Чесний AI-пітч (3-4 речення, 100% чесно):</b>\n` +
-      `<code>${coverLetter}</code>\n\n` +
-      `📊 <b>Статус Playwright:</b>\n${applyResult.message}\n\n` +
+      (outcome.coverLetter
+        ? `💬 <b>Чесний AI-пітч:</b>\n<code>${outcome.coverLetter}</code>\n\n`
+        : "") +
+      `📊 <b>Статус:</b>\n${outcome.message}\n\n` +
       `🔗 <b>Пряме посилання на вакансію:</b>\n${match.vacancy.url}`;
 
     await ctx.api.editMessageText(
@@ -616,6 +591,67 @@ bot.callbackQuery(/^set_level:(Junior|Middle|Senior)$/, async (ctx) => {
     });
   } catch (e) {
     // ігноруємо якщо текст не змінився
+  }
+});
+
+// 📎 Завантаження CV (PDF) та cookies (JSON) прямо в Telegram — лише для власника.
+// Так файли потрапляють на Railway Volume без вшивання в Docker-образ.
+const COOKIE_PLATFORMS = ["dou", "djinni", "work", "robota", "jobico"] as const;
+
+bot.on("message:document", async (ctx) => {
+  const ownerId = process.env.OWNER_TELEGRAM_ID;
+  if (!ownerId || String(ctx.from?.id) !== ownerId) {
+    await ctx.reply("⛔ Завантаження файлів доступне лише власнику бота (OWNER_TELEGRAM_ID).");
+    return;
+  }
+
+  const doc = ctx.message.document;
+  const fileName = (doc.file_name || "").toLowerCase();
+  const caption = (ctx.message.caption || "").trim().toLowerCase();
+
+  if (doc.file_size && doc.file_size > 5 * 1024 * 1024) {
+    await ctx.reply("❌ Файл завеликий (макс. 5 МБ).");
+    return;
+  }
+
+  try {
+    const file = await ctx.api.getFile(doc.file_id);
+    const res = await fetch(`https://api.telegram.org/file/bot${token}/${file.file_path}`);
+    if (!res.ok) throw new Error(`Telegram file download: ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+
+    if (fileName.endsWith(".pdf")) {
+      if (buf.subarray(0, 4).toString() !== "%PDF") throw new Error("Це не валідний PDF");
+      const cvPath = process.env.CV_PATH || path.join(process.cwd(), "Sviatoslav_Tumtciv_CV.pdf");
+      fs.mkdirSync(path.dirname(cvPath), { recursive: true });
+      fs.writeFileSync(cvPath, buf);
+      await ctx.reply("✅ CV збережено. Авто-відгуки використовуватимуть цей файл.");
+      return;
+    }
+
+    if (fileName.endsWith(".json")) {
+      const platform = COOKIE_PLATFORMS.find(
+        (p) => fileName.replace(".json", "") === p || caption === p
+      );
+      if (!platform) {
+        await ctx.reply(
+          `❌ Не розпізнано платформу. Назвіть файл <platform>.json або додайте підпис: ${COOKIE_PLATFORMS.join(", ")}.`
+        );
+        return;
+      }
+      const parsed = JSON.parse(buf.toString("utf-8"));
+      if (!Array.isArray(parsed)) throw new Error("Очікується JSON-масив cookies");
+      const dir = process.env.COOKIES_DIR || path.join(process.cwd(), "cookies");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${platform}.json`), JSON.stringify(parsed, null, 2));
+      await ctx.reply(`✅ Cookies для ${platform} збережено (${parsed.length} шт.).`);
+      return;
+    }
+
+    await ctx.reply("❌ Підтримуються лише .pdf (CV) та .json (cookies).");
+  } catch (error: any) {
+    console.error("Помилка завантаження файлу:", error);
+    await ctx.reply(`❌ Не вдалося зберегти файл: ${error.message || error}`);
   }
 });
 

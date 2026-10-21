@@ -46,6 +46,7 @@ model Match {
     score         Int
     reason        String?
     coverLetter   String?
+    applyMessage  String?
     matchedSkills String[]    @default([])
     missingSkills String[]    @default([])
     status        MatchStatus @default(NEW)
@@ -61,6 +62,34 @@ model Match {
 enum MatchStatus {
     NEW
     SENT
+    PENDING_APPLY
     APPLIED
     REJECTED
+}
+
+// Черга завдань: Vercel-дашборд лише створює записи, воркер на Railway їх виконує
+model Job {
+    id             String       @id @default(uuid())
+    type           JobType
+    status         JobStatus    @default(PENDING)
+    matchId        String?
+    previousStatus MatchStatus?
+    result         String?
+    createdAt      DateTime     @default(now())
+    startedAt      DateTime?
+    finishedAt     DateTime?
+
+    @@index([status, createdAt])
+}
+
+enum JobType {
+    APPLY
+    SCAN
+}
+
+enum JobStatus {
+    PENDING
+    RUNNING
+    DONE
+    FAILED
 }
