@@ -14,6 +14,18 @@ if (!token) {
 
 export const bot = new Bot(token || "dummy_token");
 
+// 🔒 Безпека: бот обробляє лише апдейти від власника (OWNER_TELEGRAM_ID).
+// Усі інші апдейти (повідомлення, файли, callback-кнопки) тихо ігноруються.
+// Якщо змінну не задано — бот блокує всіх (fail closed).
+const OWNER_ID = Number(process.env.OWNER_TELEGRAM_ID);
+if (!Number.isSafeInteger(OWNER_ID) || OWNER_ID <= 0) {
+  console.warn("⚠️ OWNER_TELEGRAM_ID не задано або невалідне — бот ігноруватиме ВСІ вхідні повідомлення!");
+}
+bot.use(async (ctx, next) => {
+  if (ctx.from?.id !== OWNER_ID) return;
+  await next();
+});
+
 /**
  * Форматує гарне повідомлення про вакансію для Telegram
  */
@@ -599,11 +611,7 @@ bot.callbackQuery(/^set_level:(Junior|Middle|Senior)$/, async (ctx) => {
 const COOKIE_PLATFORMS = ["dou", "djinni", "work", "robota", "jobico"] as const;
 
 bot.on("message:document", async (ctx) => {
-  const ownerId = process.env.OWNER_TELEGRAM_ID;
-  if (!ownerId || String(ctx.from?.id) !== ownerId) {
-    await ctx.reply("⛔ Завантаження файлів доступне лише власнику бота (OWNER_TELEGRAM_ID).");
-    return;
-  }
+  // Доступ вже обмежено глобальним middleware (OWNER_ID)
 
   const doc = ctx.message.document;
   const fileName = (doc.file_name || "").toLowerCase();
