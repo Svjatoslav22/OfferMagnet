@@ -18,6 +18,8 @@ export class DouScraper implements JobScraper {
     if (category) {
       url.searchParams.set("category", category);
     }
+    // Junior: досвід 0-1 рік
+    url.searchParams.set("exp", "0-1");
 
     const response = await fetch(url.toString(), {
       headers: {

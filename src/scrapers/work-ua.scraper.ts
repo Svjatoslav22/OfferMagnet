@@ -14,6 +14,9 @@ export class WorkUaScraper implements JobScraper {
 
     const url = new URL(this.baseUrl);
     url.searchParams.set("search", keyword);
+    // Junior: без досвіду / до 1 року
+    url.searchParams.append("experience", "0");
+    url.searchParams.append("experience", "1");
 
     let browser;
     try {

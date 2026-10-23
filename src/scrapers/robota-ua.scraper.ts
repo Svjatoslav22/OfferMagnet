@@ -13,7 +13,9 @@ export class RobotaUaScraper implements JobScraper {
     const keywordSlug = rawKeyword.toLowerCase().replace(/\./g, "-").replace(/\s+/g, "-");
     const limit = options.limit || 20;
 
-    const targetUrl = `${this.baseUrl}${encodeURIComponent(keywordSlug)}/ukraine`;
+    // Robota.ua не має відкритого URL-параметра досвіду — додаємо junior у слаг запиту
+    const juniorSlug = keywordSlug.startsWith("junior") ? keywordSlug : `junior-${keywordSlug}`;
+    const targetUrl = `${this.baseUrl}${encodeURIComponent(juniorSlug)}/ukraine`;
 
     let browser;
     try {

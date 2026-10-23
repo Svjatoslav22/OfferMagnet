@@ -7,6 +7,7 @@ import { VacancyService } from "../services/vacancy.service";
 import { MatcherService } from "../ai/matcher.service";
 import { TelegramNotifierService } from "../bot/notifier.service";
 import { prisma } from "../db";
+import { isAboveJuniorTitle } from "../services/seniority-filter";
 import type { Bot } from "grammy";
 
 /**
@@ -167,8 +168,14 @@ export class PipelineOrchestrator {
         `📍 [Pipeline] Фільтрація локації ("${combinedLocationStr}"): залишено ${filteredVacancies.length} із ${scrapedVacancies.length} (відсіяно ${rejectedCount} офлайн-вакансій в інших містах).`
       );
 
-      // 3. Зберігаємо у PostgreSQL ТІЛЬКИ відфільтровані за локацією вакансії
-      await this.vacancyService.saveVacancies(filteredVacancies);
+      // 2.6. Жорсткий фільтр рівня: Senior/Lead/Principal/Middle/Staff у тайтлі — не зберігаємо
+      const juniorVacancies = filteredVacancies.filter((v) => !isAboveJuniorTitle(v.title));
+      console.log(
+        `🎓 [Pipeline] Фільтр рівня: залишено ${juniorVacancies.length} із ${filteredVacancies.length} (відсіяно ${filteredVacancies.length - juniorVacancies.length} Senior/Lead/Middle).`
+      );
+
+      // 3. Зберігаємо у PostgreSQL ТІЛЬКИ відфільтровані за локацією та рівнем вакансії
+      await this.vacancyService.saveVacancies(juniorVacancies);
 
       // 4. On-Demand AI: Створюємо записи Match зі статусом NEW (БЕЗ спалювання токенів LLM)
       let newMatchesCreated = 0;
@@ -181,6 +188,10 @@ export class PipelineOrchestrator {
         for (const vacancy of allVacancies) {
           // Жорстка фільтрація: переконуємося, що вакансія суворо відповідає локації саме цього кандидата
           if (!matchesLocation(vacancy, profile.location)) {
+            continue;
+          }
+          // Не створюємо Match для Senior/Lead/Middle (навіть якщо вакансія вже була в базі)
+          if (isAboveJuniorTitle(vacancy.title)) {
             continue;
           }
 

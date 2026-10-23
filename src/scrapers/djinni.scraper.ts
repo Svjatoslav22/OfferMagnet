@@ -15,6 +15,9 @@ export class DjinniScraper implements JobScraper {
     if (keyword) {
       url.searchParams.set("primary_keyword", keyword);
     }
+    // Junior: без досвіду та до 1 року
+    url.searchParams.append("exp_level", "no_exp");
+    url.searchParams.append("exp_level", "1y");
 
     const response = await fetch(url.toString(), {
       headers: {
