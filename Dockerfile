@@ -4,6 +4,7 @@ FROM node:22-slim
 # Встановлюємо Chromium та системні залежності для обходу Cloudflare
 RUN apt-get update && apt-get install -y \
     chromium \
+    dumb-init \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
     fonts-thai-tlwg \
@@ -11,7 +12,6 @@ RUN apt-get update && apt-get install -y \
     fonts-freefont-ttf \
     libxss1 \
     libnss3 \
-    libasound2t64 \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,6 +39,9 @@ COPY src ./src
 ENV COOKIES_DIR=/data/cookies
 ENV CV_PATH=/data/Sviatoslav_Tumtciv_CV.pdf
 ENV ARTIFACTS_DIR=/data/artifacts/applies
+
+# Коректна маршрутизація сигналів SIGINT/SIGTERM для безпечного завершення процесів
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 # Запуск бота та планувальника CRON
 CMD ["npm", "run", "bot:prod"]

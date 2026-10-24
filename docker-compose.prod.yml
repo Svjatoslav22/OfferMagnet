@@ -1,0 +1,26 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: offermagnet-worker
+    restart: unless-stopped
+    # Збільшений розмір shared memory для стабільної роботи Chromium без збоїв SIGBUS
+    shm_size: "1gb"
+    env_file:
+      - .env
+    volumes:
+      # Постійне сховище для cookies, CV та скріншотів відгуків
+      - worker_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  worker_data:
