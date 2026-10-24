@@ -481,21 +481,21 @@ export function DashboardApp({
 
 
         {/* Quick status toggle footer */}
-        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs">
+        <div className="pt-2 border-t border-slate-100 flex flex-col gap-2 text-xs min-w-0">
           <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
             {job.status === "NEW" ? "Нова" : job.status === "SENT" ? "У Telegram" : job.status === "APPLIED" ? "Відгукнувся" : job.status === "PENDING_APPLY" ? "⏳ В черзі на відгук…" : "Відхилено"}
           </span>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-1.5 w-full items-center">
             {job.status !== "APPLIED" && job.status !== "PENDING_APPLY" && (
               <button
                 onClick={() => handleAutoApply(job)}
                 disabled={applyingJobId === job.id}
                 title="Авто-відгук: поставити в чергу — воркер згенерує чесний AI-пітч, прикріпить CV і відправить"
-                className="p-1 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition flex items-center gap-1 shrink-0 whitespace-nowrap shadow-xs disabled:opacity-50 cursor-pointer active:scale-95"
+                className="min-w-0 truncate text-xs px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition flex items-center gap-1 shadow-xs disabled:opacity-50 cursor-pointer active:scale-95"
               >
-                <Sparkles className={`w-3 h-3 ${applyingJobId === job.id ? "animate-spin" : ""}`} />
-                <span>{applyingJobId === job.id ? "Ставлю в чергу..." : "🚀 Авто-відгук"}</span>
+                <Sparkles className={`w-3 h-3 shrink-0 ${applyingJobId === job.id ? "animate-spin" : ""}`} />
+                <span className="min-w-0 truncate">{applyingJobId === job.id ? "Ставлю в чергу..." : "🚀 Авто-відгук"}</span>
               </button>
             )}
 
@@ -504,10 +504,10 @@ export function DashboardApp({
                 onClick={() => handleStatusChange(job.id, "APPLIED")}
                 disabled={isUpdatingStatus}
                 title="Позначити як Відгукнувся"
-                className="p-1 px-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-medium transition flex items-center gap-1 shrink-0 whitespace-nowrap"
+                className="min-w-0 truncate text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-medium transition flex items-center gap-1"
               >
-                <Check className="w-3 h-3" />
-                <span>Відгук</span>
+                <Check className="w-3 h-3 shrink-0" />
+                <span className="min-w-0 truncate">Відгук</span>
               </button>
             )}
 
@@ -516,7 +516,7 @@ export function DashboardApp({
                 onClick={() => handleStatusChange(job.id, "REJECTED")}
                 disabled={isUpdatingStatus}
                 title="Відхилити"
-                className="p-1 px-2 rounded-lg bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-200 font-medium transition flex items-center gap-1 shrink-0"
+                className="p-1 px-2 rounded-lg bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-200 font-medium transition flex items-center justify-center gap-1 justify-self-end"
               >
                 <XCircle className="w-3 h-3" />
               </button>
@@ -527,7 +527,7 @@ export function DashboardApp({
                 onClick={() => handleStatusChange(job.id, "NEW")}
                 disabled={isUpdatingStatus}
                 title="Повернути в Нові"
-                className="p-1 px-2 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200 transition shrink-0"
+                className="p-1 px-2 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200 transition flex items-center justify-center justify-self-end"
               >
                 <RotateCcw className="w-3 h-3" />
               </button>
