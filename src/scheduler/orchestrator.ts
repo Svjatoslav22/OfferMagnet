@@ -123,7 +123,7 @@ export class PipelineOrchestrator {
       for (const vacancy of filteredVacancies) {
         const isValidTitle = !isBlacklistedTitle(vacancy.title) && isTechRole(vacancy.title);
         if (!isValidTitle) {
-          console.log(`[FILTERED OUT] Тайтл не пройшов перевірку: ${vacancy.title}`);
+          console.log(`[FILTERED OUT] Тайтл не пройшов: ${vacancy.title}`);
           continue;
         }
         validVacancies.push(vacancy);
