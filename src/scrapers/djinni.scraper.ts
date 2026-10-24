@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { JobScraper, ScrapedVacancy, ScrapeOptions } from "./types";
+import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
 
 export class DjinniScraper implements JobScraper {
   readonly source = "DJINNI";
@@ -15,9 +15,13 @@ export class DjinniScraper implements JobScraper {
     if (keyword) {
       url.searchParams.set("primary_keyword", keyword);
     }
-    // Junior: без досвіду та до 1 року
-    url.searchParams.append("exp_level", "no_exp");
-    url.searchParams.append("exp_level", "1y");
+    // Досвід за рівнем профілю
+    const levels = {
+      junior: ["no_exp", "1y"],
+      middle: ["2y", "3y"],
+      senior: ["5y"],
+    }[normalizeSeniority(options.seniority)];
+    for (const lvl of levels) url.searchParams.append("exp_level", lvl);
 
     const response = await fetch(url.toString(), {
       headers: {

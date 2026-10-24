@@ -117,14 +117,22 @@ export class PipelineOrchestrator {
       );
       const searchKeyword = allKeywords[0] || "Node.js";
 
+      // Основний профіль налаштувань для формування точних URL-запитів.
+      // У схемі поля називаються keywords (навички) та level (грейд).
+      const mainProfile = await prisma.searchProfile.findFirst();
+      const profileKeyword = mainProfile?.keywords?.[0];
+      const seniority = mainProfile?.level;
+      const queryKeyword = profileKeyword || searchKeyword;
+
       // 2. Паралельний збір з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico) через Promise.allSettled
-      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${searchKeyword}" з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico)...`);
+      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${queryKeyword}" (рівень: ${seniority || "Junior"}) з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico)...`);
+      const scrapeOpts = { keyword: queryKeyword, seniority, limit: 5 };
       const [douResult, djinniResult, workUaResult, robotaUaResult, jobicoResult] = await Promise.allSettled([
-        this.douScraper.scrape({ keyword: searchKeyword, limit: 5 }),
-        this.djinniScraper.scrape({ keyword: searchKeyword, limit: 5 }),
-        this.workUaScraper.scrape({ keyword: searchKeyword, limit: 5 }),
-        this.robotaUaScraper.scrape({ keyword: searchKeyword, limit: 5 }),
-        this.jobicoScraper.scrape({ keyword: searchKeyword, limit: 5 }),
+        this.douScraper.scrape(scrapeOpts),
+        this.djinniScraper.scrape(scrapeOpts),
+        this.workUaScraper.scrape(scrapeOpts),
+        this.robotaUaScraper.scrape(scrapeOpts),
+        this.jobicoScraper.scrape(scrapeOpts),
       ]);
 
       const scrapedVacancies = [

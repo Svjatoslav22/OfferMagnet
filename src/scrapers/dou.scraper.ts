@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { JobScraper, ScrapedVacancy, ScrapeOptions } from "./types";
+import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
 
 export class DouScraper implements JobScraper {
   readonly source = "DOU";
@@ -18,8 +18,9 @@ export class DouScraper implements JobScraper {
     if (category) {
       url.searchParams.set("category", category);
     }
-    // Junior: досвід 0-1 рік
-    url.searchParams.set("exp", "0-1");
+    // Досвід за рівнем профілю
+    const exp = { junior: "0-1", middle: "1-3", senior: "5plus" }[normalizeSeniority(options.seniority)];
+    url.searchParams.set("exp", exp);
 
     const response = await fetch(url.toString(), {
       headers: {

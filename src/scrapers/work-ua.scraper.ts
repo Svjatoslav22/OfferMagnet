@@ -1,4 +1,4 @@
-import type { JobScraper, ScrapedVacancy, ScrapeOptions } from "./types";
+import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
 import { createStealthBrowser, createStealthContext } from "./browser";
 
 export class WorkUaScraper implements JobScraper {
@@ -14,9 +14,11 @@ export class WorkUaScraper implements JobScraper {
 
     const url = new URL(this.baseUrl);
     url.searchParams.set("search", keyword);
-    // Junior: без досвіду / до 1 року
-    url.searchParams.append("experience", "0");
-    url.searchParams.append("experience", "1");
+    // Junior: без досвіду / до 1 року (для Middle/Senior фільтр досвіду не задається)
+    if (normalizeSeniority(options.seniority) === "junior") {
+      url.searchParams.append("experience", "0");
+      url.searchParams.append("experience", "1");
+    }
 
     let browser;
     try {

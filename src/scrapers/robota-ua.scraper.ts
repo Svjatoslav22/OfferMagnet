@@ -1,4 +1,4 @@
-import type { JobScraper, ScrapedVacancy, ScrapeOptions } from "./types";
+import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
 import { createStealthBrowser, createStealthContext } from "./browser";
 
 export class RobotaUaScraper implements JobScraper {
@@ -13,8 +13,9 @@ export class RobotaUaScraper implements JobScraper {
     const keywordSlug = rawKeyword.toLowerCase().replace(/\./g, "-").replace(/\s+/g, "-");
     const limit = options.limit || 20;
 
-    // Robota.ua не має відкритого URL-параметра досвіду — додаємо junior у слаг запиту
-    const juniorSlug = keywordSlug.startsWith("junior") ? keywordSlug : `junior-${keywordSlug}`;
+    // Robota.ua не має відкритого URL-параметра досвіду — додаємо рівень (junior/middle/senior) у слаг запиту
+    const level = normalizeSeniority(options.seniority);
+    const juniorSlug = keywordSlug.startsWith(level) ? keywordSlug : `${level}-${keywordSlug}`;
     const targetUrl = `${this.baseUrl}${encodeURIComponent(juniorSlug)}/ukraine`;
 
     let browser;
