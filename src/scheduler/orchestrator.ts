@@ -7,7 +7,7 @@ import { VacancyService } from "../services/vacancy.service";
 import { MatcherService } from "../ai/matcher.service";
 import { TelegramNotifierService } from "../bot/notifier.service";
 import { prisma } from "../db";
-import { isAboveJuniorTitle } from "../services/seniority-filter";
+import { isBlacklistedTitle, isTechRole } from "../services/seniority-filter";
 import { matchesLocation } from "../services/location-filter";
 import type { Bot } from "grammy";
 
@@ -118,14 +118,17 @@ export class PipelineOrchestrator {
         `📍 [Pipeline] Фільтрація локації ("${combinedLocationStr}"): залишено ${filteredVacancies.length} із ${scrapedVacancies.length} (відсіяно ${rejectedCount} офлайн-вакансій в інших містах).`
       );
 
-      // 2.6. Жорсткий фільтр рівня: Senior/Lead/Principal/Middle/Staff у тайтлі — не зберігаємо
-      const juniorVacancies = filteredVacancies.filter((v) => !isAboveJuniorTitle(v.title));
+      // 2.6. Жорсткий фільтр: вакансія зберігається лише якщо не в blacklist і належить до технічних IT-ролей
+      const validVacancies = filteredVacancies.filter(
+        (v) => !isBlacklistedTitle(v.title) && isTechRole(v.title)
+      );
+      const rejectedTitlesCount = filteredVacancies.length - validVacancies.length;
       console.log(
-        `🎓 [Pipeline] Фільтр рівня: залишено ${juniorVacancies.length} із ${filteredVacancies.length} (відсіяно ${filteredVacancies.length - juniorVacancies.length} Senior/Lead/Middle).`
+        `🎓 [Pipeline] Фільтр тайтлів (!isBlacklistedTitle && isTechRole): залишено ${validVacancies.length} із ${filteredVacancies.length} (відсіяно ${rejectedTitlesCount} нерелевантних/нетехнічних).`
       );
 
-      // 3. Зберігаємо у PostgreSQL ТІЛЬКИ відфільтровані за локацією та рівнем вакансії
-      await this.vacancyService.saveVacancies(juniorVacancies);
+      // 3. Зберігаємо у PostgreSQL ТІЛЬКИ відфільтровані за локацією та роллю вакансії
+      await this.vacancyService.saveVacancies(validVacancies);
 
       // 4. On-Demand AI: Створюємо записи Match зі статусом NEW (БЕЗ спалювання токенів LLM)
       let newMatchesCreated = 0;
@@ -140,8 +143,8 @@ export class PipelineOrchestrator {
           if (!matchesLocation(vacancy, profile.location)) {
             continue;
           }
-          // Не створюємо Match для Senior/Lead/Middle (навіть якщо вакансія вже була в базі)
-          if (isAboveJuniorTitle(vacancy.title)) {
+          // Не створюємо Match для нетехнічних або вакансій з blacklist (навіть якщо вони вже були в базі)
+          if (isBlacklistedTitle(vacancy.title) || !isTechRole(vacancy.title)) {
             continue;
           }
 
