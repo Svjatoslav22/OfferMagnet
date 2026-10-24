@@ -1,6 +1,7 @@
 /**
- * Жорсткий фільтр тайтлу: відсіює вакансії нерелевантного рівня (Middle/Senior/Lead...)
- * та нетехнічних / нерелевантних спеціальностей (QA, HR, Sales, Design, Manager...).
+ * Жорсткий фільтр тайтлу: відсіює вакансії нерелевантного рівня (Middle/Senior/Lead...),
+ * нетехнічних / нерелевантних спеціальностей (QA, HR, Sales, Design, Manager...),
+ * а також мілітарі та невідповідних сфер (ЗСУ, НГУ, ТЦК, БПЛА тощо).
  * Використовується в оркестраторі ДО збереження в БД та перед створенням Match.
  * Перевірка повністю регістронезалежна.
  */
@@ -9,6 +10,8 @@ export const TITLE_BLACKLIST = [
   "QA",
   "AQA",
   "Manual",
+  "test",
+  "analyst",
   ".NET",
   "ASP.NET",
   "C#",
@@ -34,6 +37,15 @@ export const TITLE_BLACKLIST = [
   "administrator",
   "seo",
   "smm",
+  // Мілітарі та державні структури
+  "зсу",
+  "нгу",
+  "тцк",
+  "бпла",
+  "військ",
+  "батальйон",
+  "бригада",
+  "медичн",
   // Грейди
   "Middle",
   "Senior",
@@ -89,7 +101,12 @@ export function isTechRole(title: string | null | undefined): boolean {
 
 /** true, якщо у тайтлі є слово з blacklist (будь-який регістр) */
 export function isBlacklistedTitle(title: string | null | undefined): boolean {
-  return BLACKLIST_REGEX.test((title || "").toLowerCase());
+  if (!title) return false;
+  const lower = title.toLowerCase();
+  if (BLACKLIST_REGEX.test(lower)) return true;
+  // Спеціальна перевірка для коренів/основ слів (військовий, медичний тощо)
+  if (lower.includes("військ") || lower.includes("медичн")) return true;
+  return false;
 }
 
 /** @deprecated Зворотна сумісність: тепер перевіряє весь blacklist, а не лише грейди */

@@ -119,9 +119,15 @@ export class PipelineOrchestrator {
       );
 
       // 2.6. Жорсткий фільтр: вакансія зберігається лише якщо не в blacklist і належить до технічних IT-ролей
-      const validVacancies = filteredVacancies.filter(
-        (v) => !isBlacklistedTitle(v.title) && isTechRole(v.title)
-      );
+      const validVacancies: typeof filteredVacancies = [];
+      for (const vacancy of filteredVacancies) {
+        const isValidTitle = !isBlacklistedTitle(vacancy.title) && isTechRole(vacancy.title);
+        if (!isValidTitle) {
+          console.log(`[FILTERED OUT] Тайтл не пройшов перевірку: ${vacancy.title}`);
+          continue;
+        }
+        validVacancies.push(vacancy);
+      }
       const rejectedTitlesCount = filteredVacancies.length - validVacancies.length;
       console.log(
         `🎓 [Pipeline] Фільтр тайтлів (!isBlacklistedTitle && isTechRole): залишено ${validVacancies.length} із ${filteredVacancies.length} (відсіяно ${rejectedTitlesCount} нерелевантних/нетехнічних).`
