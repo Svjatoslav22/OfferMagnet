@@ -1,5 +1,6 @@
 import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
 import { createStealthBrowser, createStealthContext } from "./browser";
+import { parseLocationFilter, matchesLocation } from "../services/location-filter";
 
 export class RobotaUaScraper implements JobScraper {
   readonly source = "Robota.ua";
@@ -13,10 +14,27 @@ export class RobotaUaScraper implements JobScraper {
     const keywordSlug = rawKeyword.toLowerCase().replace(/\./g, "-").replace(/\s+/g, "-");
     const limit = options.limit || 20;
 
-    // Robota.ua не має відкритого URL-параметра досвіду — додаємо рівень (junior/middle/senior) у слаг запиту
+    // Фільтрація за рівнем
     const level = normalizeSeniority(options.seniority);
     const juniorSlug = keywordSlug.startsWith(level) ? keywordSlug : `${level}-${keywordSlug}`;
-    const targetUrl = `${this.baseUrl}${encodeURIComponent(juniorSlug)}/ukraine`;
+
+    // Фільтрація за локацією з SearchProfile (Lviv = cityId 2, Remote = vidaleno / scheduleId 3)
+    const { hasLviv, hasRemote } = parseLocationFilter(options.location);
+    let locationSlug = "ukraine";
+    if (hasLviv) {
+      locationSlug = "lviv";
+    } else if (hasRemote) {
+      locationSlug = "vidaleno";
+    }
+
+    const targetUrlObj = new URL(`${this.baseUrl}${encodeURIComponent(juniorSlug)}/${locationSlug}`);
+    if (hasLviv) {
+      targetUrlObj.searchParams.set("cityId", "2");
+    }
+    if (hasRemote) {
+      targetUrlObj.searchParams.set("scheduleId", "3");
+    }
+    const targetUrl = targetUrlObj.toString();
 
     let browser;
     try {
@@ -137,7 +155,7 @@ export class RobotaUaScraper implements JobScraper {
           ? item.href
           : `https://robota.ua${item.href.startsWith("/") ? "" : "/"}${item.href}`;
 
-        vacancies.push({
+        const candidateVacancy: ScrapedVacancy = {
           externalId: `robotaua-${item.id}`,
           source: this.source,
           title: item.title,
@@ -147,7 +165,14 @@ export class RobotaUaScraper implements JobScraper {
           location: item.location,
           salary: item.salary,
           postedAt: new Date(),
-        });
+        };
+
+        // Гарантуємо відсутність нерелевантних офлайн-вакансій з Києва, Дніпра тощо
+        if (options.location && !matchesLocation(candidateVacancy, options.location)) {
+          continue;
+        }
+
+        vacancies.push(candidateVacancy);
       }
 
       return vacancies;

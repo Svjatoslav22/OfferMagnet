@@ -16,6 +16,8 @@ export interface ScrapeOptions {
   limit?: number | undefined;
   /** Рівень кандидата з профілю (Junior / Middle / Senior) — для фільтра досвіду в URL */
   seniority?: string | undefined;
+  /** Локація з профілю кандидата (наприклад, "Remote / Львів") */
+  location?: string | undefined;
 }
 
 /** Нормалізує рівень профілю до junior | middle | senior (за замовчуванням junior) */

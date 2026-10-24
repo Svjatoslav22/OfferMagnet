@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
+import { parseLocationFilter, matchesLocation } from "../services/location-filter";
 
 export class DouScraper implements JobScraper {
   readonly source = "DOU";
@@ -9,7 +10,7 @@ export class DouScraper implements JobScraper {
    * Парсить вакансії з DOU за ключовим словом або категорією
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
-    const { keyword, category, limit } = options;
+    const { keyword, category, limit, location: profileLocation } = options;
     const url = new URL(this.baseUrl);
 
     if (keyword) {
@@ -21,6 +22,17 @@ export class DouScraper implements JobScraper {
     // Досвід за рівнем профілю
     const exp = { junior: "0-1", middle: "1-3", senior: "5plus" }[normalizeSeniority(options.seniority)];
     url.searchParams.set("exp", exp);
+
+    // Фільтрація за локацією з SearchProfile
+    const { hasLviv, hasRemote } = parseLocationFilter(profileLocation);
+    if (hasLviv) {
+      url.searchParams.set("city", "Львів");
+    } else if (hasRemote) {
+      url.searchParams.set("city", "remote");
+    }
+    if (hasRemote) {
+      url.searchParams.set("remote", "1");
+    }
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -66,7 +78,7 @@ export class DouScraper implements JobScraper {
 
       const postedAt = this.parseDouDate(dateText);
 
-      vacancies.push({
+      const candidateVacancy: ScrapedVacancy = {
         externalId,
         source: this.source,
         title,
@@ -76,7 +88,14 @@ export class DouScraper implements JobScraper {
         location: location || undefined,
         salary,
         postedAt,
-      });
+      };
+
+      // Гарантуємо відсутність офісних вакансій з інших міст
+      if (profileLocation && !matchesLocation(candidateVacancy, profileLocation)) {
+        return;
+      }
+
+      vacancies.push(candidateVacancy);
     });
 
     return vacancies;

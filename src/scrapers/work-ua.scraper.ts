@@ -1,5 +1,6 @@
 import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
 import { createStealthBrowser, createStealthContext } from "./browser";
+import { parseLocationFilter, matchesLocation } from "../services/location-filter";
 
 export class WorkUaScraper implements JobScraper {
   readonly source = "Work.ua";
@@ -12,8 +13,24 @@ export class WorkUaScraper implements JobScraper {
     const keyword = options.keyword || "Node.js";
     const limit = options.limit || 20;
 
-    const url = new URL(this.baseUrl);
+    // Фільтрація за локацією з SearchProfile
+    const { hasLviv, hasRemote } = parseLocationFilter(options.location);
+    let targetBaseUrl = this.baseUrl;
+    if (hasLviv) {
+      targetBaseUrl = "https://www.work.ua/jobs-lviv/";
+    } else if (hasRemote) {
+      targetBaseUrl = "https://www.work.ua/jobs-remote/";
+    }
+
+    const url = new URL(targetBaseUrl);
     url.searchParams.set("search", keyword);
+    if (hasLviv) {
+      url.searchParams.set("city_id", "74");
+    }
+    if (hasRemote) {
+      url.searchParams.set("remote", "1");
+    }
+
     // Junior: без досвіду / до 1 року (для Middle/Senior фільтр досвіду не задається)
     if (normalizeSeniority(options.seniority) === "junior") {
       url.searchParams.append("experience", "0");
@@ -131,7 +148,7 @@ export class WorkUaScraper implements JobScraper {
           ? item.relUrl
           : `https://www.work.ua${item.relUrl.startsWith("/") ? "" : "/"}${item.relUrl}`;
 
-        vacancies.push({
+        const candidateVacancy: ScrapedVacancy = {
           externalId,
           source: this.source,
           title: item.title,
@@ -141,7 +158,14 @@ export class WorkUaScraper implements JobScraper {
           location: item.location,
           salary: item.salary,
           postedAt: new Date(),
-        });
+        };
+
+        // Гарантуємо відсутність нерелевантних офлайн-вакансій з Києва, Дніпра тощо
+        if (options.location && !matchesLocation(candidateVacancy, options.location)) {
+          continue;
+        }
+
+        vacancies.push(candidateVacancy);
       }
 
       return vacancies;

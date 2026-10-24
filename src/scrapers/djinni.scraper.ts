@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { normalizeSeniority, type JobScraper, type ScrapedVacancy, type ScrapeOptions } from "./types";
+import { parseLocationFilter, matchesLocation } from "../services/location-filter";
 
 export class DjinniScraper implements JobScraper {
   readonly source = "DJINNI";
@@ -9,7 +10,7 @@ export class DjinniScraper implements JobScraper {
    * Парсить вакансії з Djinni за ключовим словом або спеціалізацією
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
-    const { keyword, limit } = options;
+    const { keyword, limit, location: profileLocation } = options;
     const url = new URL(this.baseUrl);
 
     if (keyword) {
@@ -22,6 +23,15 @@ export class DjinniScraper implements JobScraper {
       senior: ["5y"],
     }[normalizeSeniority(options.seniority)];
     for (const lvl of levels) url.searchParams.append("exp_level", lvl);
+
+    // Фільтрація за локацією з SearchProfile
+    const { hasLviv, hasRemote } = parseLocationFilter(profileLocation);
+    if (hasLviv) {
+      url.searchParams.set("location", "lviv");
+    }
+    if (hasRemote) {
+      url.searchParams.set("employment", "remote");
+    }
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -66,7 +76,7 @@ export class DjinniScraper implements JobScraper {
       const descContainer = $el.find("div[id^='job-description-']");
       const description = descContainer.text().replace(/\s+/g, " ").trim() || `${title} at ${company}. ${locationAndMeta}`;
 
-      vacancies.push({
+      const candidateVacancy: ScrapedVacancy = {
         externalId,
         source: this.source,
         title,
@@ -76,7 +86,14 @@ export class DjinniScraper implements JobScraper {
         location: locationAndMeta || undefined,
         salary,
         postedAt: new Date(),
-      });
+      };
+
+      // Гарантуємо відсутність нерелевантних офлайн-вакансій
+      if (profileLocation && !matchesLocation(candidateVacancy, profileLocation)) {
+        return;
+      }
+
+      vacancies.push(candidateVacancy);
     });
 
     return vacancies;

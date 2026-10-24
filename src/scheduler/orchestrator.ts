@@ -8,69 +8,10 @@ import { MatcherService } from "../ai/matcher.service";
 import { TelegramNotifierService } from "../bot/notifier.service";
 import { prisma } from "../db";
 import { isAboveJuniorTitle } from "../services/seniority-filter";
+import { matchesLocation } from "../services/location-filter";
 import type { Bot } from "grammy";
 
-/**
- * Перевіряє, чи вакансія відповідає бажаній локації кандидата (Remote / Місто)
- */
-export function matchesLocation(
-  vacancy: {
-    location?: string | null | undefined;
-    title?: string | undefined;
-    description?: string | undefined;
-  },
-  targetLocationStr: string
-): boolean {
-  if (!targetLocationStr || targetLocationStr.trim() === "") return true;
-
-  const targetTokens = targetLocationStr
-    .toLowerCase()
-    .split(/[/,;|]+|\s+та\s+|\s+і\s+|\s+and\s+|\s+or\s+/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-
-  const allowsRemote = targetTokens.some((t) =>
-    ["remote", "віддалено", "дистанційно", "online", "онлайн", "вся україна"].includes(t)
-  );
-
-  // Отримуємо міста з профілю (все, що не позначає Remote)
-  const targetCities = targetTokens.filter(
-    (t) => !["remote", "віддалено", "дистанційно", "online", "онлайн", "вся україна"].includes(t)
-  );
-
-  const loc = (vacancy.location || "").toLowerCase();
-  const text = `${vacancy.title || ""} ${vacancy.description || ""}`.toLowerCase();
-
-  // 1. Якщо вакансія пропонує віддалену роботу, і кандидат готовий до Remote:
-  const isVacancyRemote =
-    loc.includes("remote") ||
-    loc.includes("віддален") ||
-    loc.includes("дистанційн") ||
-    loc.includes("онлайн") ||
-    loc.includes("online") ||
-    loc.includes("вся україна") ||
-    loc.includes("будь-яке місто") ||
-    text.includes("віддалена робота") ||
-    text.includes("можливість працювати віддалено") ||
-    text.includes("remote work");
-
-  if (allowsRemote && isVacancyRemote) {
-    return true;
-  }
-
-  // 2. Якщо вакансія знаходиться в одному з цільових міст кандидата:
-  for (const city of targetCities) {
-    if (loc.includes(city)) return true;
-    if (city === "львів" && (loc.includes("lviv") || loc.includes("львові"))) return true;
-    if (city === "київ" && (loc.includes("kyiv") || loc.includes("kiev") || loc.includes("києві"))) return true;
-    if (city === "одеса" && (loc.includes("odesa") || loc.includes("odessa"))) return true;
-    if (city === "харків" && loc.includes("kharkiv")) return true;
-    if (city === "дніпро" && loc.includes("dnipro")) return true;
-  }
-
-  // 3. Якщо вакансія суто офлайн в іншому місті (наприклад, Київ офіс при бажанні Remote / Львів) — відсіюємо
-  return false;
-}
+export { matchesLocation };
 
 export class PipelineOrchestrator {
   private isRunning = false;
@@ -122,11 +63,12 @@ export class PipelineOrchestrator {
       const mainProfile = await prisma.searchProfile.findFirst();
       const profileKeyword = mainProfile?.keywords?.[0];
       const seniority = mainProfile?.level;
+      const location = mainProfile?.location;
       const queryKeyword = profileKeyword || searchKeyword;
 
       // 2. Паралельний збір з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico) через Promise.allSettled
-      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${queryKeyword}" (рівень: ${seniority || "Junior"}) з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico)...`);
-      const scrapeOpts = { keyword: queryKeyword, seniority, limit: 5 };
+      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${queryKeyword}" (рівень: ${seniority || "Junior"}, локація: ${location || "Remote"}) з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico)...`);
+      const scrapeOpts = { keyword: queryKeyword, seniority, location, limit: 5 };
       const [douResult, djinniResult, workUaResult, robotaUaResult, jobicoResult] = await Promise.allSettled([
         this.douScraper.scrape(scrapeOpts),
         this.djinniScraper.scrape(scrapeOpts),
