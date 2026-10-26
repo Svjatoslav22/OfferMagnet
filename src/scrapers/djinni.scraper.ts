@@ -11,11 +11,10 @@ export class DjinniScraper implements JobScraper {
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
     const { keyword, limit, location: profileLocation } = options;
+    const targetKeyword = keyword || "JavaScript";
     const url = new URL(this.baseUrl);
 
-    if (keyword) {
-      url.searchParams.set("primary_keyword", keyword);
-    }
+    url.searchParams.set("primary_keyword", targetKeyword);
     // Досвід за рівнем профілю
     const levels = {
       junior: ["no_exp", "1y"],
@@ -32,6 +31,8 @@ export class DjinniScraper implements JobScraper {
     if (hasRemote) {
       url.searchParams.set("employment", "remote");
     }
+
+    console.log(`[Djinni Scraper] Запит URL: ${url.toString()}`);
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -54,14 +55,18 @@ export class DjinniScraper implements JobScraper {
     const items = $("div.job-item");
 
     items.each((_, el) => {
-      if (limit && vacancies.length >= limit) {
-        return false;
-      }
-
       const $el = $(el);
       const link = $el.find("a.job_item__header-link, a[href^='/jobs/']").first();
       const href = link.attr("href")?.trim();
       const title = $el.find("h2.job-item__position").text().trim() || link.text().trim();
+
+      if (title) {
+        console.log(`[Djinni Scraper] Знайдено raw title: "${title}"`);
+      }
+
+      if (limit && vacancies.length >= limit) {
+        return false;
+      }
 
       if (!href || !title) return;
 

@@ -10,19 +10,12 @@ export class WorkUaScraper implements JobScraper {
    * Парсить вакансії з Work.ua через stealth-браузер для обходу Cloudflare
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
-    const keyword = options.keyword || "Node.js";
+    const keyword = options.keyword || "Frontend";
     const limit = options.limit || 20;
 
     // Фільтрація за локацією з SearchProfile
     const { hasLviv, hasRemote } = parseLocationFilter(options.location);
-    let targetBaseUrl = this.baseUrl;
-    if (hasLviv) {
-      targetBaseUrl = "https://www.work.ua/jobs-lviv/";
-    } else if (hasRemote) {
-      targetBaseUrl = "https://www.work.ua/jobs-remote/";
-    }
-
-    const url = new URL(targetBaseUrl);
+    const url = new URL(this.baseUrl);
     url.searchParams.set("search", keyword);
     if (hasLviv) {
       url.searchParams.set("city_id", "74");
@@ -31,11 +24,7 @@ export class WorkUaScraper implements JobScraper {
       url.searchParams.set("remote", "1");
     }
 
-    // Junior: без досвіду / до 1 року (для Middle/Senior фільтр досвіду не задається)
-    if (normalizeSeniority(options.seniority) === "junior") {
-      url.searchParams.append("experience", "0");
-      url.searchParams.append("experience", "1");
-    }
+    console.log(`[Work.ua Scraper] Перехід за URL: ${url.toString()}`);
 
     let browser;
     try {
@@ -132,6 +121,12 @@ export class WorkUaScraper implements JobScraper {
           };
         });
       });
+
+      for (const item of rawVacancies) {
+        if (item.title) {
+          console.log(`[Work.ua Scraper] Знайдено raw title: "${item.title}"`);
+        }
+      }
 
       const vacancies: ScrapedVacancy[] = [];
 

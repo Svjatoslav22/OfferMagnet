@@ -11,11 +11,10 @@ export class DouScraper implements JobScraper {
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
     const { keyword, category, limit, location: profileLocation } = options;
+    const targetKeyword = keyword || "Frontend";
     const url = new URL(this.baseUrl);
 
-    if (keyword) {
-      url.searchParams.set("search", keyword);
-    }
+    url.searchParams.set("search", targetKeyword);
     if (category) {
       url.searchParams.set("category", category);
     }
@@ -33,6 +32,8 @@ export class DouScraper implements JobScraper {
     if (hasRemote) {
       url.searchParams.set("remote", "1");
     }
+
+    console.log(`[DOU Scraper] Запит URL: ${url.toString()}`);
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -55,16 +56,20 @@ export class DouScraper implements JobScraper {
     const vacancyItems = $("li.l-vacancy");
 
     vacancyItems.each((_, element) => {
-      if (limit && vacancies.length >= limit) {
-        return false; // Break cheerio loop
-      }
-
       const $el = $(element);
       const titleLink = $el.find("div.title a.vt");
       const title = titleLink.text().trim();
       const jobUrl = titleLink.attr("href")?.trim();
 
+      if (title) {
+        console.log(`[DOU Scraper] Знайдено raw title: "${title}"`);
+      }
+
       if (!title || !jobUrl) return;
+
+      if (limit && vacancies.length >= limit) {
+        return false; // Break cheerio loop
+      }
 
       // Витягуємо externalId з URL (наприклад: https://jobs.dou.ua/.../vacancies/347775/)
       const idMatch = jobUrl.match(/\/vacancies\/(\d+)\/?/);

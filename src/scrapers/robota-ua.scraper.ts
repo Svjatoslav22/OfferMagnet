@@ -10,24 +10,23 @@ export class RobotaUaScraper implements JobScraper {
    * Парсить вакансії з Robota.ua через stealth-браузер
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
-    const rawKeyword = options.keyword || "node-js";
-    const keywordSlug = rawKeyword.toLowerCase().replace(/\./g, "-").replace(/\s+/g, "-");
+    const targetKeyword = options.keyword || "Frontend";
+    const keywordSlug = targetKeyword
+      .toLowerCase()
+      .trim()
+      .replace(/\.js$/i, "-js")
+      .replace(/\./g, "-")
+      .replace(/\s+/g, "-");
     const limit = options.limit || 20;
 
-    // Фільтрація за рівнем
-    const level = normalizeSeniority(options.seniority);
-    const juniorSlug = keywordSlug.startsWith(level) ? keywordSlug : `${level}-${keywordSlug}`;
-
-    // Фільтрація за локацією з SearchProfile (Lviv = cityId 2, Remote = vidaleno / scheduleId 3)
+    // Фільтрація за локацією з SearchProfile (Lviv = cityId 2, Remote = scheduleId 3)
     const { hasLviv, hasRemote } = parseLocationFilter(options.location);
     let locationSlug = "ukraine";
     if (hasLviv) {
       locationSlug = "lviv";
-    } else if (hasRemote) {
-      locationSlug = "vidaleno";
     }
 
-    const targetUrlObj = new URL(`${this.baseUrl}${encodeURIComponent(juniorSlug)}/${locationSlug}`);
+    const targetUrlObj = new URL(`${this.baseUrl}${encodeURIComponent(keywordSlug)}/${locationSlug}`);
     if (hasLviv) {
       targetUrlObj.searchParams.set("cityId", "2");
     }
@@ -35,6 +34,8 @@ export class RobotaUaScraper implements JobScraper {
       targetUrlObj.searchParams.set("scheduleId", "3");
     }
     const targetUrl = targetUrlObj.toString();
+
+    console.log(`[Robota.ua Scraper] Перехід за URL: ${targetUrl}`);
 
     let browser;
     try {
@@ -145,6 +146,12 @@ export class RobotaUaScraper implements JobScraper {
         return results;
       });
 
+      for (const item of rawVacancies) {
+        if (item.title) {
+          console.log(`[Robota.ua Scraper] Знайдено raw title: "${item.title}"`);
+        }
+      }
+
       const vacancies: ScrapedVacancy[] = [];
 
       for (const item of rawVacancies) {
@@ -162,7 +169,7 @@ export class RobotaUaScraper implements JobScraper {
           company: item.company,
           description: item.description || item.title,
           url: fullUrl,
-          location: item.location,
+          location: hasRemote ? `${item.location} (Віддалено)` : item.location,
           salary: item.salary,
           postedAt: new Date(),
         };

@@ -56,15 +56,18 @@ export class PipelineOrchestrator {
       const allKeywords = Array.from(
         new Set(profiles.flatMap((p) => p.keywords))
       );
-      const searchKeyword = allKeywords[0] || "Node.js";
+
+      // Пріоритетні цільові ключі для мінімізації широкої та нерелевантної видачі порталів
+      const TARGET_TECH_KEYWORDS = ["React", "Node", "TypeScript", "Frontend", "JavaScript", "Fullstack", "Backend"];
+      const matchedTarget = allKeywords.find((kw) =>
+        TARGET_TECH_KEYWORDS.some((target) => kw.toLowerCase().includes(target.toLowerCase()))
+      );
 
       // Основний профіль налаштувань для формування точних URL-запитів.
-      // У схемі поля називаються keywords (навички) та level (грейд).
       const mainProfile = await prisma.searchProfile.findFirst();
-      const profileKeyword = mainProfile?.keywords?.[0];
       const seniority = mainProfile?.level;
       const location = mainProfile?.location;
-      const queryKeyword = profileKeyword || searchKeyword;
+      const queryKeyword = matchedTarget || mainProfile?.keywords?.[0] || allKeywords[0] || "Frontend";
 
       // 2. Паралельний збір з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico) через Promise.allSettled
       console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${queryKeyword}" (рівень: ${seniority || "Junior"}, локація: ${location || "Remote"}) з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico)...`);
