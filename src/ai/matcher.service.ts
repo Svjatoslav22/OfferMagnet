@@ -1,5 +1,6 @@
 import { aiClient, DEFAULT_AI_MODEL } from "./ai.client";
 import { prisma } from "../db";
+import { getVacancySalaryUsd, formatUsdRange } from "../services/salary";
 import type { SearchProfile, Vacancy } from "@prisma/client";
 
 const MAX_DESCRIPTION_LENGTH = 3000;
@@ -26,7 +27,7 @@ export class MatcherService {
 1. Стек технологій (40% ваги): чи збігаються основні технології кандидата з вимогами.
 2. Рівень сеньйорності (30% ваги): якщо кандидат Junior, а шукають Senior/Lead/Architect — бал не повинен перевищувати 35.
 3. Формат / Локація (20% ваги): відповідність Remote / On-site / Місто.
-4. Зарплатні очікування (10% ваги): якщо вказано вилку.
+4. Зарплатні очікування (10% ваги): порівняй зарплату вакансії в $ з бажаною зарплатою кандидата. Якщо зарплата у вакансії "не вказано" — НЕ штрафуй за це і оцінюй цей пункт нейтрально.
 
 Відповідь НАДАЙ СТРОГО у валідному JSON без markdown форматування:
 {
@@ -36,6 +37,13 @@ export class MatcherService {
   "missingSkills": ["ключові вимоги з вакансії, яких кандидат не вказав"]
 }`;
 
+    const salaryUsd = getVacancySalaryUsd(vacancy.salary);
+    const vacancySalaryText = salaryUsd
+      ? `${vacancy.salary} (${formatUsdRange(salaryUsd)})`
+      : vacancy.salary
+        ? `${vacancy.salary} (в $ невідомо)`
+        : "не вказано";
+
     const userPrompt = `ПРОФІЛЬ КАНДИДАТА:
 - Рівень: ${profile.level}
 - Ключові навички: ${profile.keywords.join(", ")}
@@ -43,6 +51,7 @@ export class MatcherService {
 - Зарплатні очікування: $${profile.minSalary ?? 0} - $${profile.maxSalary ?? "не вказано"}
 
 ВАКАНСІЯ:
+- Зарплата: ${vacancySalaryText}
 - Позиція: ${vacancy.title}
 - Компанія: ${vacancy.company}
 - Джерело: ${vacancy.source}

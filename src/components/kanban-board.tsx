@@ -2,6 +2,7 @@
 
 import React, { useTransition } from "react";
 import { updateMatchStatus, triggerScanAction } from "../app/actions";
+import { formatSalaryWithUsd } from "../services/salary";
 import {
   ExternalLink,
   MapPin,
@@ -148,7 +149,7 @@ export function KanbanBoard({ initialMatches }: KanbanBoardProps) {
                           {m.vacancy.salary && (
                             <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
                               <DollarSign className="w-3.5 h-3.5" />
-                              <span>{m.vacancy.salary}</span>
+                              <span>{formatSalaryWithUsd(m.vacancy.salary)}</span>
                             </div>
                           )}
                           {m.vacancy.location && (
