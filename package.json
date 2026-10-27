@@ -11,7 +11,7 @@
     "auth": "tsx src/scripts/auth.ts",
     "verify:work": "tsx src/scripts/verify-work-auth.ts",
     "db:clean": "tsx prisma/clean.ts",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "postinstall": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
