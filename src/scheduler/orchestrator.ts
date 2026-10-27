@@ -13,6 +13,9 @@ import type { Bot } from "grammy";
 
 export { matchesLocation };
 
+const MAX_AI_PER_CYCLE = 10;
+const AI_CONCURRENCY = 2;
+
 export class PipelineOrchestrator {
   private isRunning = false;
   private douScraper = new DouScraper();
@@ -139,8 +142,9 @@ export class PipelineOrchestrator {
       // 3. Зберігаємо у PostgreSQL ТІЛЬКИ відфільтровані за локацією та роллю вакансії
       await this.vacancyService.saveVacancies(validVacancies);
 
-      // 4. On-Demand AI: Створюємо записи Match зі статусом NEW (БЕЗ спалювання токенів LLM)
+      // 4. Створюємо записи Match зі статусом NEW, потім оцінюємо нові через AI
       let newMatchesCreated = 0;
+      const newlyCreated: Array<{ profile: (typeof profiles)[number]; vacancy: (typeof allVacancies)[number] }> = [];
       const allVacancies = await prisma.vacancy.findMany({
         orderBy: { postedAt: "desc" },
         take: 50,
@@ -180,11 +184,34 @@ export class PipelineOrchestrator {
               },
             });
             newMatchesCreated++;
+            newlyCreated.push({ profile, vacancy });
           }
         }
       }
 
-      console.log(`✨ [Pipeline] Створено ${newMatchesCreated} нових нерозібраних матчів (очікують оцінки за запитом).`);
+      console.log(`✨ [Pipeline] Створено ${newMatchesCreated} нових матчів.`);
+
+      // 4.1. AI-оцінка ТІЛЬКИ нових матчів: ліміт за цикл та не більше AI_CONCURRENCY одночасно
+      const toEvaluate = newlyCreated.slice(0, MAX_AI_PER_CYCLE);
+      let evaluatedCount = 0;
+      let failedCount = 0;
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < toEvaluate.length) {
+          const item = toEvaluate[cursor++]!;
+          try {
+            await this.matcherService.matchAndSave(item.profile.userId, item.profile, item.vacancy);
+            evaluatedCount++;
+          } catch (err) {
+            failedCount++;
+            console.error(`❌ [Pipeline] AI-оцінка не вдалась для "${item.vacancy.title}" (Match лишається NEW):`, err);
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(AI_CONCURRENCY, toEvaluate.length) }, worker));
+      console.log(
+        `🤖 [Pipeline] AI-оцінка: оцінено ${evaluatedCount}, помилок ${failedCount}, відкладено ${newlyCreated.length - toEvaluate.length} (залишились NEW).`
+      );
 
       // 5. Сповіщення в Telegram про нові вакансії
       const notificationResult = options.bot

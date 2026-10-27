@@ -8,6 +8,8 @@ if (!process.env.OPENROUTER_API_KEY) {
 export const aiClient = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY,
+  timeout: 30_000,
+  maxRetries: 2,
   defaultHeaders: {
     "HTTP-Referer": "https://github.com/OfferMagnet",
     "X-Title": "OfferMagnet AI Job Agent",

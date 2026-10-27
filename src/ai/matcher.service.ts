@@ -2,6 +2,8 @@ import { aiClient, DEFAULT_AI_MODEL } from "./ai.client";
 import { prisma } from "../db";
 import type { SearchProfile, Vacancy } from "@prisma/client";
 
+const MAX_DESCRIPTION_LENGTH = 3000;
+
 export interface MatchAnalysisResult {
   score: number;
   reason: string;
@@ -44,17 +46,31 @@ export class MatcherService {
 - Позиція: ${vacancy.title}
 - Компанія: ${vacancy.company}
 - Джерело: ${vacancy.source}
-- Опис: ${vacancy.description}`;
+- Опис: ${(vacancy.description ?? "").slice(0, MAX_DESCRIPTION_LENGTH)}`;
 
-    const completion = await aiClient.chat.completions.create({
-      model: DEFAULT_AI_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.2,
-    });
+    let completion;
+    try {
+      completion = await aiClient.chat.completions.create({
+        model: DEFAULT_AI_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+      });
+    } catch (error) {
+      const status = (error as { status?: number })?.status;
+      const name = (error as { name?: string })?.name;
+      const message = error instanceof Error ? error.message : String(error);
+      let reason = message;
+      if (status === 429) reason = "перевищено ліміт запитів (429)";
+      else if (name === "APIConnectionTimeoutError") reason = "таймаут запиту (30с)";
+      throw new Error(
+        `[MatcherService] Не вдалося оцінити вакансію "${vacancy.title}": ${reason}`,
+        { cause: error }
+      );
+    }
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
