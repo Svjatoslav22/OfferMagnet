@@ -116,6 +116,7 @@ export async function syncDashboardStateAction() {
       status: m.status,
       score: m.score,
       explanation: m.reason || "",
+      evaluated: m.reason !== null,
       matchedSkills: m.matchedSkills,
       missingSkills: m.missingSkills,
       url: m.vacancy.url,
@@ -123,11 +124,18 @@ export async function syncDashboardStateAction() {
       applyMessage: m.applyMessage,
     }));
 
+    const lastScan = await prisma.job.findFirst({
+      where: { type: "SCAN", status: "DONE", finishedAt: { not: null } },
+      orderBy: { finishedAt: "desc" },
+      select: { finishedAt: true },
+    });
+
     return {
       success: true,
       jobs,
       profile,
       scanActive: !!activeScan,
+      lastScanAt: lastScan?.finishedAt?.toISOString() ?? null,
     };
   } catch (error) {
     console.error("Помилка Smart Polling синхронізації:", error);

@@ -48,6 +48,7 @@ export interface DashboardJob {
   status: MatchStatus;
   score: number;
   explanation: string;
+  evaluated: boolean;
   matchedSkills: string[];
   missingSkills: string[];
   url: string;
@@ -67,13 +68,16 @@ interface DashboardAppProps {
   initialJobs: DashboardJob[];
   initialProfile: DashboardProfile;
   telegramUsername?: string;
+  lastScanAt?: string | null;
 }
 
 export function DashboardApp({
   initialJobs,
   initialProfile,
   telegramUsername = "offermagnet_dev_bot",
+  lastScanAt: initialLastScanAt = null,
 }: DashboardAppProps) {
+  const [lastScanAt, setLastScanAt] = useState<string | null>(initialLastScanAt);
   const [activeTab, setActiveTab] = useState<"dashboard" | "kanban" | "telegram" | "settings">("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [jobs, setJobs] = useState<DashboardJob[]>(initialJobs);
@@ -133,6 +137,7 @@ export function DashboardApp({
         if (res.success && res.jobs) {
           setJobs(res.jobs);
           setScanActive(!!res.scanActive);
+          setLastScanAt(res.lastScanAt ?? null);
 
           if (res.profile) {
             setProfile(res.profile);
@@ -181,6 +186,7 @@ export function DashboardApp({
       if (res.success && res.jobs) {
         setJobs(res.jobs);
         setScanActive(!!res.scanActive);
+        setLastScanAt(res.lastScanAt ?? null);
         if (res.profile) {
           setProfile(res.profile);
           if (activeTab !== "settings") {
@@ -201,15 +207,20 @@ export function DashboardApp({
 
   // Statistics calculation
   const totalJobs = jobs.length;
-  const highMatches = jobs.filter((j) => j.score >= 80).length;
+  const evaluatedJobs = jobs.filter((j) => j.evaluated);
+  const evaluatedCount = evaluatedJobs.length;
+  const highMatches = evaluatedJobs.filter((j) => j.score >= 80).length;
   const appliedCount = jobs.filter((j) => j.status === "APPLIED").length;
-  const avgScore = totalJobs
-    ? Math.round(jobs.reduce((acc, j) => acc + j.score, 0) / totalJobs)
-    : 0;
+  const avgScore = evaluatedCount
+    ? Math.round(evaluatedJobs.reduce((acc, j) => acc + j.score, 0) / evaluatedCount)
+    : null;
+  const lastScanMinutes = lastScanAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(lastScanAt).getTime()) / 60000))
+    : null;
 
   // Missing skills aggregation
   const missingSkillsMap = new Map<string, number>();
-  jobs.forEach((j) => {
+  evaluatedJobs.forEach((j) => {
     j.missingSkills.forEach((skill) => {
       const clean = skill.trim();
       if (!clean) return;
@@ -645,10 +656,12 @@ export function DashboardApp({
                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${isSyncing ? "duration-500" : ""}`}></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="font-semibold">{isSyncing ? "Синхронізація..." : "Live з Telegram"}</span>
-              <span className="text-emerald-600/70 text-[11px] hidden md:inline">
-                • {syncSecondsAgo < 5 ? "щойно" : `${syncSecondsAgo}с тому`}
-              </span>
+              <span className="font-semibold">{isSyncing ? "Синхронізація..." : lastScanMinutes === null ? "Немає даних" : "Live з Telegram"}</span>
+              {lastScanMinutes !== null && (
+                <span className="text-emerald-600/70 text-[11px] hidden md:inline" suppressHydrationWarning>
+                  • оновлено {lastScanMinutes} хв тому
+                </span>
+              )}
               <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ml-0.5 ${isSyncing ? "animate-spin" : ""}`} />
             </button>
           </div>
@@ -691,7 +704,7 @@ export function DashboardApp({
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
                     <div>
                       <p className="text-sm font-medium text-slate-500 mb-1">Топ збіги (&gt;80%)</p>
-                      <h3 className="text-2xl font-bold text-slate-900">{highMatches}</h3>
+                      <h3 className="text-2xl font-bold text-slate-900">{evaluatedCount ? highMatches : "—"}</h3>
                       <p className="text-sm text-amber-600 mt-2">Рекомендовано ШІ</p>
                     </div>
                     <div className="p-3 bg-amber-50 rounded-lg text-amber-600">
@@ -713,8 +726,8 @@ export function DashboardApp({
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
                     <div>
                       <p className="text-sm font-medium text-slate-500 mb-1">Середній Match Score</p>
-                      <h3 className="text-2xl font-bold text-slate-900">{avgScore}%</h3>
-                      <p className="text-sm text-slate-400 mt-2">На базі Gemini AI</p>
+                      <h3 className="text-2xl font-bold text-slate-900">{avgScore === null ? "—" : `${avgScore}%`}</h3>
+                      <p className="text-sm text-slate-400 mt-2">{avgScore === null ? "Немає оцінених вакансій" : "На базі Gemini AI"}</p>
                     </div>
                     <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
                       <BarChart3 className="w-6 h-6" />
@@ -750,7 +763,9 @@ export function DashboardApp({
                       </p>
                       <div className="space-y-3">
                         {missingSkillsList.length === 0 ? (
-                          <p className="text-xs text-slate-400">Усі ключові навички збігаються!</p>
+                          <p className="text-xs text-slate-400">
+                            {evaluatedCount === 0 ? "Спершу потрібні ШІ-оцінки вакансій" : "Усі ключові навички збігаються!"}
+                          </p>
                         ) : (
                           missingSkillsList.map((skill, idx) => (
                             <div key={skill.name} className="flex items-center justify-between">

@@ -36,6 +36,7 @@ export default async function Page() {
     status: m.status,
     score: m.score,
     explanation: m.reason || "",
+    evaluated: m.reason !== null,
     matchedSkills: m.matchedSkills,
     missingSkills: m.missingSkills,
     url: m.vacancy.url,
@@ -43,8 +44,15 @@ export default async function Page() {
     applyMessage: m.applyMessage,
   }));
 
+  const lastScan = await prisma.job.findFirst({
+    where: { type: "SCAN", status: "DONE", finishedAt: { not: null } },
+    orderBy: { finishedAt: "desc" },
+    select: { finishedAt: true },
+  });
+
   return (
     <DashboardApp
+      lastScanAt={lastScan?.finishedAt?.toISOString() ?? null}
       initialJobs={jobs}
       initialProfile={profile}
       telegramUsername="offermagnet_dev_bot"
