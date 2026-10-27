@@ -2,6 +2,8 @@ import { Bot } from "grammy";
 import { prisma } from "../db";
 import { formatVacancyMessage, createVacancyKeyboard } from "./bot";
 
+export const MIN_NOTIFY_SCORE = 70;
+
 export class TelegramNotifierService {
   /**
    * Розсилає свіжі вакансії користувачам (зі статусу NEW переводить у SENT)
@@ -10,7 +12,10 @@ export class TelegramNotifierService {
     const newMatches = await prisma.match.findMany({
       where: {
         status: "NEW",
+        reason: { not: null },
+        score: { gte: MIN_NOTIFY_SCORE },
       },
+      orderBy: { score: "desc" },
       include: {
         vacancy: true,
         user: true,
