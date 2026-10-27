@@ -1,9 +1,15 @@
-<!-- BEGIN:nextjs-agent-rules -->
 
-## This is NOT the Next.js you know
+# OfferMagnet: правила для ШІ-агента
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+Проєкт: персональний агент пошуку вакансій. Next.js + TypeScript + Prisma (PostgreSQL), Gemini для оцінки, Telegram-бот, scheduler (cron), scrapers (Work.ua, Robota, DOU, Djinni, Jobico).
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+Ключові папки: src/ai (оцінка Gemini), src/scrapers, src/scheduler, src/services (apply.pipeline.ts, location-filter.ts, seniority-filter.ts, vacancy.service.ts), src/bot, src/app (UI).
 
-<!-- END:nextjs-agent-rules -->
+Правила роботи:
+- Працюй тільки з файлами, які я вказав або які прямо потрібні. Не читай весь проєкт.
+- Спочатку коротко опиши план (до 5 рядків), потім міняй код.
+- Одна задача за раз. Не рефактори і не міняй дизайн, якщо не просили.
+- Відповіді короткі: що змінив, у яких файлах. Без довгих пояснень.
+- Не додавай нових бібліотек без запиту.
+- Після змін запускай `npm run build`.
+- Доки Next.js читай з node_modules/next/dist/docs/ тільки коли міняєш роутинг, API-роути або конфіг Next, не для кожної задачі (економія токенів).
