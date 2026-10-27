@@ -125,8 +125,10 @@ export function DashboardApp({
   // Smart Polling: автоматична фонова синхронізація кожні 4 секунди (з Telegram-ботом та CRON)
   React.useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
+    let stopped = false;
 
     const performSync = async () => {
+      if (stopped) return;
       // 1. Енергоефективність: якщо вкладка не активна (згорнута чи у фоні) — не турбуємо базу даних
       if (typeof document !== "undefined" && document.hidden) {
         return;
@@ -155,7 +157,24 @@ export function DashboardApp({
           setSyncSecondsAgo(0);
         }
       } catch (err) {
-        console.error("Помилка фонової синхронізації:", err);
+        const e = err as { name?: string; message?: string } | null;
+        const msg = String(e?.message ?? err);
+        const isStaleAction =
+          e?.name === "UnrecognizedActionError" ||
+          (msg.includes("Server Action") && msg.includes("was not found"));
+        if (isStaleAction) {
+          stopped = true;
+          if (intervalId) clearInterval(intervalId);
+          intervalId = null;
+          const KEY = "dashboard-stale-action-reload";
+          const last = Number(sessionStorage.getItem(KEY) || 0);
+          if (Date.now() - last > 30000) {
+            sessionStorage.setItem(KEY, String(Date.now()));
+            window.location.reload();
+          }
+        } else {
+          console.error("Помилка фонової синхронізації:", err);
+        }
       } finally {
         setIsSyncing(false);
       }
