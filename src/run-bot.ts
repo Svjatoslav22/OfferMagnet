@@ -2,6 +2,7 @@ import "dotenv/config";
 import { bot } from "./bot/bot";
 import { prisma } from "./db";
 import { initCronScheduler } from "./scheduler/cron";
+import { orchestrator } from "./scheduler/orchestrator";
 import { startJobWorker } from "./worker/job-worker";
 
 async function main() {
@@ -14,6 +15,18 @@ async function main() {
 
   // 1. Ініціалізуємо автономний CRON-планувальник (кожні 2 години)
   const cronTask = initCronScheduler(bot);
+
+  // 1.0. Одноразовий цикл пошуку одразу при старті (у фоні). RUN_ON_START=false вимикає.
+  if (process.env.RUN_ON_START !== "false") {
+    void (async () => {
+      try {
+        console.log("🚀 [START] Запуск початкового циклу пошуку...");
+        await orchestrator.runFullCycle({ bot, triggeredBy: "CRON" });
+      } catch (err) {
+        console.error("❌ [START] Помилка початкового циклу:", err);
+      }
+    })();
+  }
 
   // 1.1. Запускаємо обробник черги завдань (авто-відгуки та скани, створені з веб-дашборду)
   const stopWorker = await startJobWorker(bot);

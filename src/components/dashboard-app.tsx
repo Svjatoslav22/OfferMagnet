@@ -180,8 +180,8 @@ export function DashboardApp({
       }
     };
 
-    // Опитування кожні 4 секунди
-    intervalId = setInterval(performSync, 4000);
+    // Опитування кожні 45 секунд (пропускається, поки вкладка прихована)
+    intervalId = setInterval(performSync, 45000);
 
     // Миттєва синхронізація при поверненні фокусу на вкладку браузера
     const handleVisibilityChange = () => {
