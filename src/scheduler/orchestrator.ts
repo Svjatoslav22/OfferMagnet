@@ -15,6 +15,8 @@ export { matchesLocation };
 
 const MAX_AI_PER_CYCLE = 10;
 const AI_CONCURRENCY = 2;
+const SCRAPE_LIMIT = 20;
+const MAX_KEYWORDS_PER_CYCLE = 5;
 
 export class PipelineOrchestrator {
   private isRunning = false;
@@ -60,53 +62,41 @@ export class PipelineOrchestrator {
         new Set(profiles.flatMap((p) => p.keywords))
       );
 
-      // Пріоритетні цільові ключі для мінімізації широкої та нерелевантної видачі порталів
-      const TARGET_TECH_KEYWORDS = ["React", "Node", "TypeScript", "Frontend", "JavaScript", "Fullstack", "Backend"];
-      const matchedTarget = allKeywords.find((kw) =>
-        TARGET_TECH_KEYWORDS.some((target) => kw.toLowerCase().includes(target.toLowerCase()))
-      );
-
       // Основний профіль налаштувань для формування точних URL-запитів.
       const mainProfile = await prisma.searchProfile.findFirst();
       const seniority = mainProfile?.level;
       const location = mainProfile?.location;
-      const queryKeyword = matchedTarget || mainProfile?.keywords?.[0] || allKeywords[0] || "Frontend";
 
-      // 2. Паралельний збір з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico) через Promise.allSettled
-      console.log(`🔍 [Pipeline] Збираємо вакансії для запиту: "${queryKeyword}" (рівень: ${seniority || "Junior"}, локація: ${location || "Remote"}) з 5 джерел (DOU, Djinni, Work.ua, Robota.ua, Jobico)...`);
-      const scrapeOpts = { keyword: queryKeyword, seniority, location, limit: 5 };
-      const [douResult, djinniResult, workUaResult, robotaUaResult, jobicoResult] = await Promise.allSettled([
-        this.douScraper.scrape(scrapeOpts),
-        this.djinniScraper.scrape(scrapeOpts),
-        this.workUaScraper.scrape(scrapeOpts),
-        this.robotaUaScraper.scrape(scrapeOpts),
-        this.jobicoScraper.scrape(scrapeOpts),
-      ]);
+      // Ітеруємо по всіх ключових словах (дедуплікація, ліміт MAX_KEYWORDS_PER_CYCLE)
+      const queryKeywords = allKeywords.length > 0 ? allKeywords.slice(0, MAX_KEYWORDS_PER_CYCLE) : ["Frontend"];
 
-      const scrapedVacancies = [
-        ...(douResult.status === "fulfilled" ? douResult.value : []),
-        ...(djinniResult.status === "fulfilled" ? djinniResult.value : []),
-        ...(workUaResult.status === "fulfilled" ? workUaResult.value : []),
-        ...(robotaUaResult.status === "fulfilled" ? robotaUaResult.value : []),
-        ...(jobicoResult.status === "fulfilled" ? jobicoResult.value : []),
-      ];
+      console.log(`🔍 [Pipeline] Збираємо вакансії для запитів: ${queryKeywords.map((k) => `"${k}"`).join(", ")} (рівень: ${seniority || "Junior"}, локація: ${location || "Remote"}, limit: ${SCRAPE_LIMIT}) з 5 джерел...`);
 
-      if (douResult.status === "rejected") {
-        console.error("❌ [Pipeline] Помилка DOU парсера:", douResult.reason);
+      const scrapedMap = new Map<string, Awaited<ReturnType<DouScraper["scrape"]>>[number]>();
+      const failures: Array<{ name: string; reason: unknown }> = [];
+      for (const queryKeyword of queryKeywords) {
+        const scrapeOpts = { keyword: queryKeyword, seniority, location, limit: SCRAPE_LIMIT };
+        const scrapers = [
+          { name: "DOU", run: () => this.douScraper.scrape(scrapeOpts) },
+          { name: "Djinni", run: () => this.djinniScraper.scrape(scrapeOpts) },
+          { name: "Work.ua", run: () => this.workUaScraper.scrape(scrapeOpts) },
+          { name: "Robota.ua", run: () => this.robotaUaScraper.scrape(scrapeOpts) },
+          { name: "Jobico", run: () => this.jobicoScraper.scrape(scrapeOpts) },
+        ];
+        const results = await Promise.allSettled(scrapers.map((s) => s.run()));
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            for (const v of r.value) scrapedMap.set(`${v.source}:${v.externalId}`, v);
+          } else {
+            failures.push({ name: `${scrapers[i]!.name} ("${queryKeyword}")`, reason: r.reason });
+          }
+        });
       }
-      if (djinniResult.status === "rejected") {
-        console.error("❌ [Pipeline] Помилка Djinni парсера:", djinniResult.reason);
-      }
-      if (workUaResult.status === "rejected") {
-        console.error("❌ [Pipeline] Помилка Work.ua парсера:", workUaResult.reason);
-      }
-      if (robotaUaResult.status === "rejected") {
-        console.error("❌ [Pipeline] Помилка Robota.ua парсера:", robotaUaResult.reason);
-      }
-      if (jobicoResult.status === "rejected") {
-        console.error("❌ [Pipeline] Помилка Jobico парсера:", jobicoResult.reason);
-      }
+      const scrapedVacancies = Array.from(scrapedMap.values());
 
+      for (const f of failures) {
+        console.error(`❌ [Pipeline] Помилка парсера ${f.name}:`, f.reason);
+      }
       console.log(`📦 [Pipeline] Успішно спарсено: ${scrapedVacancies.length} вакансій.`);
 
       // 2.5. Жорстка фільтрація за локацією кандидата ЩЕ ДО збереження в базу

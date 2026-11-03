@@ -23,7 +23,6 @@ export class VacancyService {
           url: v.url,
           location: v.location ?? null,
           salary: v.salary ?? null,
-          postedAt: v.postedAt,
         },
         create: {
           source: v.source,
