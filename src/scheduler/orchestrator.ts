@@ -4,7 +4,6 @@ import { WorkUaScraper } from "../scrapers/work-ua.scraper";
 import { RobotaUaScraper } from "../scrapers/robota-ua.scraper";
 import { JobicoScraper } from "../scrapers/jobico.scraper";
 import { VacancyService } from "../services/vacancy.service";
-import { MatcherService } from "../ai/matcher.service";
 import { TelegramNotifierService } from "../bot/notifier.service";
 import { prisma } from "../db";
 import { isBlacklistedTitle, isTechRole } from "../services/seniority-filter";
@@ -13,8 +12,6 @@ import type { Bot } from "grammy";
 
 export { matchesLocation };
 
-const MAX_AI_PER_CYCLE = 10;
-const AI_CONCURRENCY = 2;
 const SCRAPE_LIMIT = 20;
 const MAX_KEYWORDS_PER_CYCLE = 5;
 
@@ -26,7 +23,6 @@ export class PipelineOrchestrator {
   private robotaUaScraper = new RobotaUaScraper();
   private jobicoScraper = new JobicoScraper();
   private vacancyService = new VacancyService();
-  private matcherService = new MatcherService();
   private notifier = new TelegramNotifierService();
 
   /**
@@ -180,28 +176,6 @@ export class PipelineOrchestrator {
       }
 
       console.log(`✨ [Pipeline] Створено ${newMatchesCreated} нових матчів.`);
-
-      // 4.1. AI-оцінка ТІЛЬКИ нових матчів: ліміт за цикл та не більше AI_CONCURRENCY одночасно
-      const toEvaluate = newlyCreated.slice(0, MAX_AI_PER_CYCLE);
-      let evaluatedCount = 0;
-      let failedCount = 0;
-      let cursor = 0;
-      const worker = async () => {
-        while (cursor < toEvaluate.length) {
-          const item = toEvaluate[cursor++]!;
-          try {
-            await this.matcherService.matchAndSave(item.profile.userId, item.profile, item.vacancy);
-            evaluatedCount++;
-          } catch (err) {
-            failedCount++;
-            console.error(`❌ [Pipeline] AI-оцінка не вдалась для "${item.vacancy.title}" (Match лишається NEW):`, err);
-          }
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(AI_CONCURRENCY, toEvaluate.length) }, worker));
-      console.log(
-        `🤖 [Pipeline] AI-оцінка: оцінено ${evaluatedCount}, помилок ${failedCount}, відкладено ${newlyCreated.length - toEvaluate.length} (залишились NEW).`
-      );
 
       // 5. Сповіщення в Telegram про нові вакансії
       const notificationResult = options.bot
