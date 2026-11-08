@@ -27,8 +27,7 @@ const EXPERIENCE_PATTERNS: RegExp[] = [
 const ENGLISH_B2_PLUS_PATTERNS: RegExp[] = [
   /\bupper[\s-]*intermediate\b/i,
   new RegExp(`${WORD_START}(?:b2|c1|c2)\\+?${WORD_END}`, "i"),
-  /\badvanced\b/i,
-  /\bfluent\b/i,
+  /(?:(?:english|англійськ[а-яіїєґ']*)[\s\S]{0,30}\b(?:advanced|fluent)\b|\b(?:advanced|fluent)\b[\s\S]{0,30}(?:english|англійськ[а-яіїєґ']*))/i,
 ];
 
 export function shouldRejectByDescription(

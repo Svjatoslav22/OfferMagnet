@@ -66,7 +66,9 @@ export const TECH_ROLE_KEYWORDS = [
 
 const FOREIGN_STACK_KEYWORDS = [
   "Angular",
+  "AngularJS",
   "Vue",
+  "VueJS",
   "Java",
   ".NET",
   "C#",
@@ -127,9 +129,13 @@ export function isMiddleOnlyTitle(title: string): boolean {
   return MIDDLE_REGEX.test(title) && !ENTRY_LEVEL_REGEX.test(title);
 }
 
+const FOREIGN_JS_SUFFIX_REGEX = /\b(?:angular|vue)\.?js\b/gi;
+
 /** true, якщо у тайтлі є чужий стек і немає жодного маркера власного стеку */
 export function isForeignStackTitle(title: string): boolean {
-  return FOREIGN_STACK_REGEX.test(title) && !OWN_STACK_REGEX.test(title);
+  if (!FOREIGN_STACK_REGEX.test(title)) return false;
+  const cleanedTitle = title.replace(FOREIGN_JS_SUFFIX_REGEX, "");
+  return !OWN_STACK_REGEX.test(cleanedTitle);
 }
 
 /** true, якщо у тайтлі є слово з blacklist, нерелевантний Middle або чужий стек (будь-який регістр) */

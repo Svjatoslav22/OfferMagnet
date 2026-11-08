@@ -5,13 +5,25 @@ export interface ScorableVacancy {
   salary?: string | null | undefined;
 }
 
-const CORE_STACK_PATTERNS: Array<{ name: string; regex: RegExp }> = [
+const CORE_STACK_PATTERNS: Array<{
+  name: string;
+  regex: RegExp;
+  descRegex?: RegExp;
+}> = [
   { name: "react", regex: /\breact(\.js|js)?\b/i },
-  { name: "next.js", regex: /\bnext(\.js|js)?\b/i },
+  { name: "next.js", regex: /\bnext(?:\.js|js|\s+js)\b/i },
   { name: "node.js", regex: /\bnode(\.js|js)?\b/i },
   { name: "express", regex: /\bexpress(\.js|js)?\b/i },
-  { name: "typescript", regex: /\btypescript\b|\bts\b/i },
-  { name: "javascript", regex: /\bjavascript\b|\bjs\b/i },
+  {
+    name: "typescript",
+    regex: /\btypescript\b|\bts\b/i,
+    descRegex: /\btypescript\b/i,
+  },
+  {
+    name: "javascript",
+    regex: /\bjavascript\b|\bjs\b/i,
+    descRegex: /\bjavascript\b|\b(?:node|react|next|express)\.js\b/i,
+  },
   { name: "mongodb", regex: /\bmongodb\b|\bmongo\b/i },
   { name: "postgresql", regex: /\bpostgresql\b|\bpostgres\b/i },
   { name: "tailwind", regex: /\btailwind(css)?\b/i },
@@ -54,7 +66,7 @@ export function computeKeywordScore(
 
   for (const item of CORE_STACK_PATTERNS) {
     const inTitle = item.regex.test(title);
-    const inDesc = item.regex.test(description);
+    const inDesc = (item.descRegex ?? item.regex).test(description);
     if (inTitle || inDesc) {
       matchedStack.add(item.name);
       stackScore += inTitle ? 15 : 10;
@@ -63,7 +75,7 @@ export function computeKeywordScore(
 
   for (const rawKw of profileKeywords) {
     const kw = rawKw.trim().toLowerCase();
-    if (!kw || matchedStack.has(kw)) continue;
+    if (!kw || kw === "js" || kw === "ts" || matchedStack.has(kw)) continue;
     const alreadyCovered = CORE_STACK_PATTERNS.some(
       (item) => matchedStack.has(item.name) && item.regex.test(kw)
     );
