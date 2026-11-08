@@ -12,15 +12,6 @@ export const TITLE_BLACKLIST = [
   "Manual",
   "test",
   "analyst",
-  ".NET",
-  "ASP.NET",
-  "C#",
-  "Java",
-  "Python",
-  "PHP",
-  "Data",
-  "DevOps",
-  "Ruby",
   // Нетехнічні та суміжні ролі
   "copywriter",
   "writer",
@@ -47,7 +38,6 @@ export const TITLE_BLACKLIST = [
   "бригада",
   "медичн",
   // Грейди
-  "Middle",
   "Senior",
   "Lead",
   "Principal",
@@ -67,25 +57,58 @@ export const TECH_ROLE_KEYWORDS = [
   "js",
   "розробник",
   "програміст",
+  "trainee",
+  "intern",
+  "web",
+  "software",
+  "full stack",
 ];
+
+const FOREIGN_STACK_KEYWORDS = [
+  "Angular",
+  "Vue",
+  "Java",
+  ".NET",
+  "C#",
+  "PHP",
+  "Python",
+  "Go",
+  "Ruby",
+  "Kotlin",
+  "Swift",
+];
+
+const OWN_STACK_KEYWORDS = [
+  "react",
+  "node",
+  "javascript",
+  "typescript",
+  "js",
+  "ts",
+  "fullstack",
+  "full-stack",
+];
+
+const ENTRY_LEVEL_KEYWORDS = ["junior", "trainee", "intern"];
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const BLACKLIST_REGEX = new RegExp(
-  `(?<![\\p{L}\\p{N}])(?:${TITLE_BLACKLIST.map((w) => escapeRegex(w.toLowerCase())).join("|")})(?![\\p{L}\\p{N}])`,
-  "iu"
-);
+const buildWordRegex = (words: string[]) =>
+  new RegExp(
+    `(?<![\\p{L}\\p{N}])(?:${words.map((w) => escapeRegex(w.toLowerCase())).join("|")})(?![\\p{L}\\p{N}])`,
+    "iu"
+  );
 
-const TECH_ROLE_REGEX = new RegExp(
-  `(?<![\\p{L}\\p{N}])(?:${TECH_ROLE_KEYWORDS.map((w) => escapeRegex(w.toLowerCase())).join("|")})(?![\\p{L}\\p{N}])`,
-  "iu"
-);
+const BLACKLIST_REGEX = buildWordRegex(TITLE_BLACKLIST);
+const TECH_ROLE_REGEX = buildWordRegex(TECH_ROLE_KEYWORDS);
+const MIDDLE_REGEX = buildWordRegex(["middle"]);
+const ENTRY_LEVEL_REGEX = buildWordRegex(ENTRY_LEVEL_KEYWORDS);
+const FOREIGN_STACK_REGEX = buildWordRegex(FOREIGN_STACK_KEYWORDS);
+const OWN_STACK_REGEX = buildWordRegex(OWN_STACK_KEYWORDS);
 
 /**
  * Перевіряє, чи належить вакансія до цільових технічних IT-ролей (розробка ПЗ).
- * Повертає true, лише якщо тайтл містить хоча б одне зі слів (регістронезалежно):
- * 'developer', 'engineer', 'programmer', 'fullstack', 'frontend', 'backend',
- * 'react', 'node', 'typescript', 'js', 'розробник', 'програміст'.
+ * Повертає true, лише якщо тайтл містить хоча б одне з ключових слів TECH_ROLE_KEYWORDS.
  */
 export function isTechRole(title: string | null | undefined): boolean {
   if (!title) return false;
@@ -99,13 +122,25 @@ export function isTechRole(title: string | null | undefined): boolean {
   );
 }
 
-/** true, якщо у тайтлі є слово з blacklist (будь-який регістр) */
+/** true, якщо у тайтлі є Middle без junior / trainee / intern */
+export function isMiddleOnlyTitle(title: string): boolean {
+  return MIDDLE_REGEX.test(title) && !ENTRY_LEVEL_REGEX.test(title);
+}
+
+/** true, якщо у тайтлі є чужий стек і немає жодного маркера власного стеку */
+export function isForeignStackTitle(title: string): boolean {
+  return FOREIGN_STACK_REGEX.test(title) && !OWN_STACK_REGEX.test(title);
+}
+
+/** true, якщо у тайтлі є слово з blacklist, нерелевантний Middle або чужий стек (будь-який регістр) */
 export function isBlacklistedTitle(title: string | null | undefined): boolean {
   if (!title) return false;
   const lower = title.toLowerCase();
   if (BLACKLIST_REGEX.test(lower)) return true;
   // Спеціальна перевірка для коренів/основ слів (військовий, медичний тощо)
   if (lower.includes("військ") || lower.includes("медичн")) return true;
+  if (isMiddleOnlyTitle(lower)) return true;
+  if (isForeignStackTitle(lower)) return true;
   return false;
 }
 
