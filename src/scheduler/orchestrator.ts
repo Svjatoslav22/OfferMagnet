@@ -9,6 +9,7 @@ import { prisma } from "../db";
 import { isBlacklistedTitle, isTechRole } from "../services/seniority-filter";
 import { matchesLocation } from "../services/location-filter";
 import { shouldRejectByDescription } from "../services/description-filter";
+import { computeKeywordScore } from "../services/keyword-score";
 import type { Bot } from "grammy";
 
 export { matchesLocation };
@@ -181,7 +182,7 @@ export class PipelineOrchestrator {
                 userId: profile.userId,
                 vacancyId: vacancy.id,
                 status: "NEW",
-                score: 0,
+                score: computeKeywordScore(vacancy, profile.keywords),
                 reason: null, // Очікує натискання [🤖 Запитати думку ШІ]
                 matchedSkills: [],
                 missingSkills: [],
