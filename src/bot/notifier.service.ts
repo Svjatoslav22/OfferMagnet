@@ -2,7 +2,8 @@ import { Bot } from "grammy";
 import { prisma } from "../db";
 import { formatVacancyMessage, createVacancyKeyboard } from "./bot";
 
-export const MIN_NOTIFY_SCORE = 70;
+export const MIN_NOTIFY_SCORE = 40;
+const MAX_NOTIFY_PER_CYCLE = 15;
 
 export class TelegramNotifierService {
   /**
@@ -12,7 +13,6 @@ export class TelegramNotifierService {
     const newMatches = await prisma.match.findMany({
       where: {
         status: "NEW",
-        reason: { not: null },
         score: { gte: MIN_NOTIFY_SCORE },
       },
       orderBy: { score: "desc" },
@@ -20,7 +20,7 @@ export class TelegramNotifierService {
         vacancy: true,
         user: true,
       },
-      take: 10,
+      take: MAX_NOTIFY_PER_CYCLE,
     });
 
     console.log(`📨 Знайдено ${newMatches.length} нових вакансій для розсилки в Telegram...`);
