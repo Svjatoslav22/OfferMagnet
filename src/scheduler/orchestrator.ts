@@ -149,14 +149,21 @@ export class PipelineOrchestrator {
 
       // 4. Створюємо записи Match зі статусом NEW, потім оцінюємо нові через AI
       let newMatchesCreated = 0;
-      const newlyCreated: Array<{ profile: (typeof profiles)[number]; vacancy: (typeof allVacancies)[number] }> = [];
-      const allVacancies = await prisma.vacancy.findMany({
-        orderBy: { postedAt: "desc" },
-        take: 50,
-      });
 
       for (const profile of profiles) {
-        for (const vacancy of allVacancies) {
+        const unmatchedVacancies = await prisma.vacancy.findMany({
+          where: {
+            matches: {
+              none: {
+                userId: profile.userId,
+              },
+            },
+          },
+          orderBy: { postedAt: "desc" },
+          take: 500,
+        });
+
+        for (const vacancy of unmatchedVacancies) {
           // Жорстка фільтрація: переконуємося, що вакансія суворо відповідає локації саме цього кандидата
           if (!matchesLocation(vacancy, profile.location)) {
             continue;
@@ -166,31 +173,18 @@ export class PipelineOrchestrator {
             continue;
           }
 
-          const existingMatch = await prisma.match.findUnique({
-            where: {
-              userId_vacancyId: {
-                userId: profile.userId,
-                vacancyId: vacancy.id,
-              },
+          await prisma.match.create({
+            data: {
+              userId: profile.userId,
+              vacancyId: vacancy.id,
+              status: "NEW",
+              score: computeKeywordScore(vacancy, profile.keywords),
+              reason: null, // Очікує натискання [🤖 Запитати думку ШІ]
+              matchedSkills: [],
+              missingSkills: [],
             },
           });
-
-          // Якщо запису ще немає — створюємо новий зі статусом NEW та reason: null
-          if (!existingMatch) {
-            await prisma.match.create({
-              data: {
-                userId: profile.userId,
-                vacancyId: vacancy.id,
-                status: "NEW",
-                score: computeKeywordScore(vacancy, profile.keywords),
-                reason: null, // Очікує натискання [🤖 Запитати думку ШІ]
-                matchedSkills: [],
-                missingSkills: [],
-              },
-            });
-            newMatchesCreated++;
-            newlyCreated.push({ profile, vacancy });
-          }
+          newMatchesCreated++;
         }
       }
 
