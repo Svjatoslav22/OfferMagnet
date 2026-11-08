@@ -23,6 +23,13 @@ export class MatcherService {
     const systemPrompt = `Ти — експертний AI IT-рекрутер та кар'єрний аналітик.
 Твоє завдання — об'єктивно оцінити відповідність вакансії до профілю кандидата за шкалою від 0 до 100 балів.
 
+КОНТЕКСТ КАНДИДАТА:
+- Junior Full-Stack, комерційного досвіду немає, є 4 pet-проєкти (e-commerce, BentoBuilder, SiteMonitor, restaurant landing)
+- Стек у CV: React, Next.js, TypeScript, JavaScript, Node.js, Express, MongoDB, PostgreSQL, MySQL, Prisma, Tailwind, Docker, Git
+- Англійська A2-B1: якщо вакансія вимагає Upper-Intermediate/B2+/Fluent, score не вище 40
+- Якщо головний стек вакансії Angular/Vue/Java/.NET/PHP/Python/Go і немає React/Node/JS/TS, score не вище 25
+- "Junior/Middle" і "Trainee" оцінюй без штрафу за рівень
+
 Критерії оцінювання:
 1. Стек технологій (40% ваги): чи збігаються основні технології кандидата з вимогами.
 2. Рівень сеньйорності (30% ваги): якщо кандидат Junior, а шукають Senior/Lead/Architect — бал не повинен перевищувати 35.
