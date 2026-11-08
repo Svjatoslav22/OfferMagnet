@@ -11,6 +11,7 @@
     "auth": "tsx src/scripts/auth.ts",
     "verify:work": "tsx src/scripts/verify-work-auth.ts",
     "db:clean": "tsx prisma/clean.ts",
+    "rescore": "tsx prisma/rescore.ts",
     "build": "next build --webpack",
     "start": "next start",
     "postinstall": "prisma generate",
