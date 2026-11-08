@@ -8,6 +8,7 @@ import { TelegramNotifierService } from "../bot/notifier.service";
 import { prisma } from "../db";
 import { isBlacklistedTitle, isTechRole } from "../services/seniority-filter";
 import { matchesLocation } from "../services/location-filter";
+import { shouldRejectByDescription } from "../services/description-filter";
 import type { Bot } from "grammy";
 
 export { matchesLocation };
@@ -111,18 +112,35 @@ export class PipelineOrchestrator {
       );
 
       // 2.6. Жорсткий фільтр: вакансія зберігається лише якщо не в blacklist і належить до технічних IT-ролей
-      const validVacancies: typeof filteredVacancies = [];
+      const titleFilteredVacancies: typeof filteredVacancies = [];
       for (const vacancy of filteredVacancies) {
         const isValidTitle = !isBlacklistedTitle(vacancy.title) && isTechRole(vacancy.title);
         if (!isValidTitle) {
           console.log(`[FILTERED OUT] Тайтл не пройшов: ${vacancy.title}`);
           continue;
         }
+        titleFilteredVacancies.push(vacancy);
+      }
+      const rejectedTitlesCount = filteredVacancies.length - titleFilteredVacancies.length;
+      console.log(
+        `🎓 [Pipeline] Фільтр тайтлів (!isBlacklistedTitle && isTechRole): залишено ${titleFilteredVacancies.length} із ${filteredVacancies.length} (відсіяно ${rejectedTitlesCount} нерелевантних/нетехнічних).`
+      );
+
+      // 2.7. Фільтр за описом вакансії (досвід 2+ років, англійська B2+)
+      const validVacancies: typeof titleFilteredVacancies = [];
+      for (const vacancy of titleFilteredVacancies) {
+        const descCheck = shouldRejectByDescription(vacancy.description);
+        if (descCheck.reject) {
+          console.log(
+            `[FILTERED OUT] Опис не пройшов (${descCheck.reason}): ${vacancy.title}`
+          );
+          continue;
+        }
         validVacancies.push(vacancy);
       }
-      const rejectedTitlesCount = filteredVacancies.length - validVacancies.length;
+      const rejectedDescCount = titleFilteredVacancies.length - validVacancies.length;
       console.log(
-        `🎓 [Pipeline] Фільтр тайтлів (!isBlacklistedTitle && isTechRole): залишено ${validVacancies.length} із ${filteredVacancies.length} (відсіяно ${rejectedTitlesCount} нерелевантних/нетехнічних).`
+        `📝 [Pipeline] Фільтр описів: залишено ${validVacancies.length} із ${titleFilteredVacancies.length} (відсіяно ${rejectedDescCount}).`
       );
 
       // 3. Зберігаємо у PostgreSQL ТІЛЬКИ відфільтровані за локацією та роллю вакансії
