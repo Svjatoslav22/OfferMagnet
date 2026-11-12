@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { JobScraper, ScrapedVacancy, ScrapeOptions } from "./types";
+import { matchesLocation } from "../services/location-filter";
 
 export class JobicoScraper implements JobScraper {
   readonly source = "JOBICO";
@@ -10,14 +11,20 @@ export class JobicoScraper implements JobScraper {
    * Парсить свіжі IT-вакансії з Jobico за ключовим словом
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
-    const { keyword = "Node.js", limit = 5 } = options;
+    const { keyword = "Node.js", limit = 5, location } = options;
 
+    let results: ScrapedVacancy[];
     try {
-      return await this.scrapeViaMcp(keyword, limit);
+      results = await this.scrapeViaMcp(keyword, limit);
     } catch (mcpError) {
       console.warn("⚠️ [Jobico Scraper] MCP API помилка, резервний парсинг через XML-фід:", mcpError);
-      return await this.scrapeViaXmlFeed(keyword, limit);
+      results = await this.scrapeViaXmlFeed(keyword, limit);
     }
+
+    if (location) {
+      return results.filter((v) => matchesLocation(v, location));
+    }
+    return results;
   }
 
   /**

@@ -47,9 +47,11 @@ export class WorkUaScraper implements JobScraper {
           const title = titleEl?.textContent?.trim() || "";
           const relUrl = titleEl?.getAttribute("href") || "";
 
-          // Опис вакансії
+          // Опис вакансії (разом із мета-рядками картки, де Work.ua вказує "Досвід від 2 років" тощо)
           const descEl = card.querySelector("p.ellipsis, p.text-muted, .overflow");
-          const description = descEl?.textContent?.trim() || "";
+          const snippet = descEl?.textContent?.replace(/\s+/g, " ").trim() || "";
+          const cardText = (card as HTMLElement).innerText?.replace(/\s+/g, " ").trim() || "";
+          const description = cardText ? `${snippet} ${cardText}`.trim() : snippet;
 
           // Зарплата
           const spans = Array.from(card.querySelectorAll("span"));

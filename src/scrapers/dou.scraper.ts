@@ -22,15 +22,14 @@ export class DouScraper implements JobScraper {
     const exp = { junior: "0-1", middle: "1-3", senior: "5plus" }[normalizeSeniority(options.seniority)];
     url.searchParams.set("exp", exp);
 
-    // Фільтрація за локацією з SearchProfile
+    // Фільтрація за локацією з SearchProfile:
+    // Якщо вказано і Львів, і Remote — не обмежуємо URL лише одним типом, бо DOU при city=Львів відсікає суто remote-вакансії;
+    // точний відбір (Львів АБО віддалено) виконує matchesLocation нижче.
     const { hasLviv, hasRemote } = parseLocationFilter(profileLocation);
-    if (hasLviv) {
+    if (hasLviv && !hasRemote) {
       url.searchParams.set("city", "Львів");
-    } else if (hasRemote) {
+    } else if (hasRemote && !hasLviv) {
       url.searchParams.set("city", "remote");
-    }
-    if (hasRemote) {
-      url.searchParams.set("remote", "1");
     }
 
     console.log(`[DOU Scraper] Запит URL: ${url.toString()}`);

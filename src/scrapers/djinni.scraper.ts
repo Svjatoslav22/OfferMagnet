@@ -11,10 +11,33 @@ export class DjinniScraper implements JobScraper {
    */
   async scrape(options: ScrapeOptions = {}): Promise<ScrapedVacancy[]> {
     const { keyword, limit, location: profileLocation } = options;
-    const targetKeyword = keyword || "JavaScript";
+    const targetKeyword = (keyword || "JavaScript").trim();
+    const lowerKw = targetKeyword.toLowerCase();
     const url = new URL(this.baseUrl);
 
-    url.searchParams.set("primary_keyword", targetKeyword);
+    // Мапінг у валідні primary_keyword Djinni (інакше Djinni ігнорує параметр і повертає всі вакансії підряд)
+    if (lowerKw === "react" || lowerKw === "react.js" || lowerKw === "reactjs") {
+      url.searchParams.set("primary_keyword", "React.js");
+    } else if (lowerKw === "next.js" || lowerKw === "nextjs") {
+      url.searchParams.set("primary_keyword", "React.js");
+      url.searchParams.set("keywords", "Next.js");
+    } else if (lowerKw === "node.js" || lowerKw === "nodejs" || lowerKw === "node" || lowerKw === "express" || lowerKw === "nestjs") {
+      url.searchParams.set("primary_keyword", "Node.js");
+      if (lowerKw !== "node.js" && lowerKw !== "nodejs" && lowerKw !== "node") {
+        url.searchParams.set("keywords", targetKeyword);
+      }
+    } else if (lowerKw === "typescript" || lowerKw === "ts") {
+      url.searchParams.set("primary_keyword", "JavaScript");
+      url.searchParams.set("keywords", "TypeScript");
+    } else if (lowerKw === "javascript" || lowerKw === "js" || lowerKw === "frontend" || lowerKw === "front-end") {
+      url.searchParams.set("primary_keyword", "JavaScript");
+    } else if (lowerKw === "fullstack" || lowerKw === "full-stack" || lowerKw === "full stack") {
+      url.searchParams.set("primary_keyword", "Fullstack");
+    } else {
+      url.searchParams.set("primary_keyword", "Node.js");
+      url.searchParams.set("keywords", targetKeyword);
+    }
+
     // Досвід за рівнем профілю
     const levels = {
       junior: ["no_exp", "1y"],
@@ -25,11 +48,10 @@ export class DjinniScraper implements JobScraper {
 
     // Фільтрація за локацією з SearchProfile
     const { hasLviv, hasRemote } = parseLocationFilter(profileLocation);
-    if (hasLviv) {
-      url.searchParams.set("location", "lviv");
-    }
-    if (hasRemote) {
+    if (hasRemote && !hasLviv) {
       url.searchParams.set("employment", "remote");
+    } else if (hasLviv && !hasRemote) {
+      url.searchParams.set("region", "UKR");
     }
 
     console.log(`[Djinni Scraper] Запит URL: ${url.toString()}`);
@@ -76,10 +98,16 @@ export class DjinniScraper implements JobScraper {
 
       const company = $el.find("span.text-gray-800").first().text().trim() || "Djinni Employer";
       const locationAndMeta = $el.find("div.fw-medium").first().text().replace(/\s+/g, " ").trim();
-      const salary = $el.find("span.text-body-tertiary").first().text().trim() || undefined;
+      const rawSalary =
+        $el.find("span.text-success, .public-salary-item").first().text().trim() ||
+        $el.find("span.text-body-tertiary").first().text().trim();
+      const salary = rawSalary && /\d/.test(rawSalary) ? rawSalary : undefined;
 
       const descContainer = $el.find("div[id^='job-description-']");
-      const description = descContainer.text().replace(/\s+/g, " ").trim() || `${title} at ${company}. ${locationAndMeta}`;
+      const rawDesc = descContainer.text().replace(/\s+/g, " ").trim();
+      const description = rawDesc
+        ? `${locationAndMeta ? `[${locationAndMeta}] ` : ""}${rawDesc}`
+        : `${title} at ${company}. ${locationAndMeta}`;
 
       const candidateVacancy: ScrapedVacancy = {
         externalId,

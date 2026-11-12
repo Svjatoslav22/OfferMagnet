@@ -99,11 +99,11 @@ export function matchesLocation(
   // 2. Якщо вакансія знаходиться в одному з цільових міст кандидата:
   for (const city of targetCities) {
     if (loc.includes(city)) return true;
-    if (city === "львів" && (loc.includes("lviv") || loc.includes("львові"))) return true;
-    if (city === "київ" && (loc.includes("kyiv") || loc.includes("kiev") || loc.includes("києві"))) return true;
-    if (city === "одеса" && (loc.includes("odesa") || loc.includes("odessa"))) return true;
-    if (city === "харків" && loc.includes("kharkiv")) return true;
-    if (city === "дніпро" && loc.includes("dnipro")) return true;
+    if ((city === "львів" || city === "lviv") && (loc.includes("львів") || loc.includes("lviv") || loc.includes("львові"))) return true;
+    if ((city === "київ" || city === "kyiv" || city === "kiev") && (loc.includes("київ") || loc.includes("kyiv") || loc.includes("kiev") || loc.includes("києві"))) return true;
+    if ((city === "одеса" || city === "odesa" || city === "odessa") && (loc.includes("одеса") || loc.includes("odesa") || loc.includes("odessa"))) return true;
+    if ((city === "харків" || city === "kharkiv") && (loc.includes("харків") || loc.includes("kharkiv"))) return true;
+    if ((city === "дніпро" || city === "dnipro") && (loc.includes("дніпро") || loc.includes("dnipro"))) return true;
   }
 
   // 3. Якщо вакансія суто офлайн в іншому місті (Київ, Дніпро тощо) і немає Remote — відсіюємо

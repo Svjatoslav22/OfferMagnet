@@ -150,5 +150,14 @@ export function isBlacklistedTitle(title: string | null | undefined): boolean {
   return false;
 }
 
+const MILITARY_UNIT_REGEX =
+  /(?<![\p{L}\p{N}])(?:зсу|нгу|тцк|бпла|гур|дпсу)(?![\p{L}\p{N}])|військ|батальйон|бригад|безпілотн|прикордонн|сил\p{L}*\s+оборон|бойов\p{L}*\s+ді|місц\p{L}*\s+служб/iu;
+
+/** true, якщо назва компанії або текст вакансії містить маркери військової служби (ЗСУ, НГУ, бригади тощо) */
+export function isMilitaryText(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return MILITARY_UNIT_REGEX.test(text);
+}
+
 /** @deprecated Зворотна сумісність: тепер перевіряє весь blacklist, а не лише грейди */
 export const isAboveJuniorTitle = isBlacklistedTitle;

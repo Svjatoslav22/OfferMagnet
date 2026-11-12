@@ -6,7 +6,7 @@ import { JobicoScraper } from "../scrapers/jobico.scraper";
 import { VacancyService } from "../services/vacancy.service";
 import { TelegramNotifierService } from "../bot/notifier.service";
 import { prisma } from "../db";
-import { isBlacklistedTitle, isTechRole } from "../services/seniority-filter";
+import { isBlacklistedTitle, isMilitaryText, isTechRole } from "../services/seniority-filter";
 import { matchesLocation } from "../services/location-filter";
 import { shouldRejectByDescription } from "../services/description-filter";
 import { computeKeywordScore } from "../services/keyword-score";
@@ -15,7 +15,7 @@ import type { Bot } from "grammy";
 export { matchesLocation };
 
 const SCRAPE_LIMIT = 20;
-const MAX_KEYWORDS_PER_CYCLE = 5;
+const MAX_KEYWORDS_PER_CYCLE = 8;
 
 export class PipelineOrchestrator {
   private isRunning = false;
@@ -112,12 +112,16 @@ export class PipelineOrchestrator {
         `📍 [Pipeline] Фільтрація локації ("${combinedLocationStr}"): залишено ${filteredVacancies.length} із ${scrapedVacancies.length} (відсіяно ${rejectedCount} офлайн-вакансій в інших містах).`
       );
 
-      // 2.6. Жорсткий фільтр: вакансія зберігається лише якщо не в blacklist і належить до технічних IT-ролей
+      // 2.6. Жорсткий фільтр: вакансія зберігається лише якщо не в blacklist (включно з компанією) і належить до технічних IT-ролей
       const titleFilteredVacancies: typeof filteredVacancies = [];
       for (const vacancy of filteredVacancies) {
-        const isValidTitle = !isBlacklistedTitle(vacancy.title) && isTechRole(vacancy.title);
+        const isValidTitle =
+          !isBlacklistedTitle(vacancy.title) &&
+          !isMilitaryText(vacancy.company) &&
+          !isMilitaryText(vacancy.description) &&
+          isTechRole(vacancy.title);
         if (!isValidTitle) {
-          console.log(`[FILTERED OUT] Тайтл не пройшов: ${vacancy.title}`);
+          console.log(`[FILTERED OUT] Тайтл/компанія не пройшли: ${vacancy.title} (${vacancy.company})`);
           continue;
         }
         titleFilteredVacancies.push(vacancy);
@@ -169,7 +173,13 @@ export class PipelineOrchestrator {
             continue;
           }
           // Не створюємо Match для нетехнічних або вакансій з blacklist (навіть якщо вони вже були в базі)
-          if (isBlacklistedTitle(vacancy.title) || !isTechRole(vacancy.title)) {
+          if (
+            isBlacklistedTitle(vacancy.title) ||
+            isMilitaryText(vacancy.company) ||
+            isMilitaryText(vacancy.description) ||
+            !isTechRole(vacancy.title) ||
+            shouldRejectByDescription(vacancy.description).reject
+          ) {
             continue;
           }
 
