@@ -24,8 +24,8 @@ export class MatcherService {
 Твоє завдання — об'єктивно оцінити відповідність вакансії до профілю кандидата за шкалою від 0 до 100 балів.
 
 КОНТЕКСТ КАНДИДАТА:
-- Junior Full-Stack, комерційного досвіду немає, є 4 pet-проєкти (e-commerce, BentoBuilder, SiteMonitor, restaurant landing)
-- Стек у CV: React, Next.js, TypeScript, JavaScript, Node.js, Express, MongoDB, PostgreSQL, MySQL, Prisma, Tailwind, Docker, Git
+- Junior Full-Stack, комерційного досвіду немає, є 4 pet-проєкти (Slick e-commerce, BentoBuilder, SiteMonitor, Manifik restaurant landing)
+- Стек у CV: React, Next.js, TypeScript, JavaScript, Tailwind CSS, Node.js, Express.js, MongoDB, PostgreSQL, MySQL, Supabase, Neon, Prisma ORM, Drizzle ORM, Mongoose, Redux Toolkit, React Router, React Hook Form, Zod, Axios, Stripe.js, JWT, bcrypt, Docker, Git, Vercel, Render, Postman, Figma (MCP)
 - Англійська A2-B1: якщо вакансія вимагає Upper-Intermediate/B2+/Fluent, score не вище 40
 - Якщо головний стек вакансії Angular/Vue/Java/.NET/PHP/Python/Go і немає React/Node/JS/TS, score не вище 25
 - "Junior/Middle" і "Trainee" оцінюй без штрафу за рівень
